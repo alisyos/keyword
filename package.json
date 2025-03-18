@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm install --save-dev typescript@5.2.2 @types/react@18.2.33 @types/react-dom@18.2.14 @types/node@20.8.10 && next build",
-    "postinstall": "npm install --save-dev typescript @types/react @types/react-dom @types/node",
+    "build": "next build",
+    "postinstall": "npm install --save-dev typescript@5.2.2 @types/react@18.2.33 @types/react-dom@18.2.14 @types/node@20.8.10",
     "start": "next start",
     "lint": "next lint"
   },
@@ -21,10 +21,10 @@
     "autoprefixer": "^10.4.16"
   },
   "devDependencies": {
-    "typescript": "^5.2.2",
-    "@types/node": "^20.8.10",
-    "@types/react": "^18.2.33",
-    "@types/react-dom": "^18.2.14",
+    "typescript": "5.2.2",
+    "@types/node": "20.8.10",
+    "@types/react": "18.2.33",
+    "@types/react-dom": "18.2.14",
     "eslint": "^8.52.0",
     "eslint-config-next": "^14.0.0"
   }

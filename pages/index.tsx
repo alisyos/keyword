@@ -22,7 +22,7 @@ export default function Home() {
     setError('');
     
     try {
-      const response = await axios.post('/api/search', { keyword });
+      const response = await axios.post('/api/keyword-search', { keyword });
       setResults(response.data);
     } catch (err) {
       setError('검색 중 오류가 발생했습니다. 다시 시도해주세요.');
