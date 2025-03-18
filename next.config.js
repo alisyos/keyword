@@ -9,11 +9,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  experimental: {
-    optimizeFonts: false,
-    optimizeImages: false,
-    scrollRestoration: false,
-  },
 };
 
 module.exports = nextConfig; 
