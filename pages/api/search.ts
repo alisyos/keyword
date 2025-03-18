@@ -12,20 +12,20 @@ const openai = new OpenAI({
 const naverClientId = process.env.NAVER_CLIENT_ID;
 const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
 
-interface SearchResult {
+type SearchResult = {
   summary: string;
   links: Array<{
     title: string;
     url: string;
     description?: string;
   }>;
-}
+};
 
-interface SearchResponse {
+type SearchResponse = {
   naverBlog: SearchResult | null;
   naverCafe: SearchResult | null;
   youtube: SearchResult | null;
-}
+};
 
 interface NaverSearchItem {
   title: string;
@@ -229,48 +229,52 @@ async function summarizeWithAI(content: string, keyword: string): Promise<string
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<SearchResponse | { error: string }>
+  res: NextApiResponse<SearchResponse | { error: string } | { message: string }>
 ) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+  // POST 요청 처리
+  if (req.method === 'POST') {
+    const { keyword } = req.body;
+
+    if (!keyword || typeof keyword !== 'string') {
+      return res.status(400).json({ error: '유효한 검색어를 입력해주세요' });
+    }
+
+    try {
+      // 모든 검색 작업 병렬 실행
+      const [naverBlogResults, naverCafeResults, youtubeResults] = await Promise.all([
+        searchNaverBlog(keyword).catch(error => {
+          console.error('네이버 블로그 검색 중 오류:', error);
+          return null;
+        }),
+        searchNaverCafe(keyword).catch(error => {
+          console.error('네이버 카페 검색 중 오류:', error);
+          return null;
+        }),
+        searchYoutube(keyword).catch(error => {
+          console.error('유튜브 검색 중 오류:', error);
+          return null;
+        })
+      ]);
+
+      // 응답 반환
+      return res.status(200).json({
+        naverBlog: naverBlogResults,
+        naverCafe: naverCafeResults,
+        youtube: youtubeResults
+      });
+    } catch (error) {
+      console.error('검색 처리 중 오류:', error);
+      return res.status(500).json({ error: '서버 오류가 발생했습니다' });
+    }
   }
-
-  const { keyword } = req.body;
-
-  if (!keyword || typeof keyword !== 'string') {
-    return res.status(400).json({ error: '유효한 검색어를 입력해주세요' });
+  
+  // GET 요청 처리
+  else if (req.method === 'GET') {
+    return res.status(200).json({ message: '이 API는 POST 요청을 통해 키워드 검색 결과를 제공합니다.' });
   }
-
-  // 네이버 API 키 확인
-  if (!naverClientId || !naverClientSecret) {
-    return res.status(500).json({ error: '네이버 API 키가 설정되지 않았습니다.' });
-  }
-
-  try {
-    // 모든 검색 작업 병렬 실행
-    const [naverBlogResults, naverCafeResults, youtubeResults] = await Promise.all([
-      searchNaverBlog(keyword).catch(error => {
-        console.error('네이버 블로그 검색 중 오류:', error);
-        return null;
-      }),
-      searchNaverCafe(keyword).catch(error => {
-        console.error('네이버 카페 검색 중 오류:', error);
-        return null;
-      }),
-      searchYoutube(keyword).catch(error => {
-        console.error('유튜브 검색 중 오류:', error);
-        return null;
-      })
-    ]);
-
-    // 응답 반환
-    res.status(200).json({
-      naverBlog: naverBlogResults,
-      naverCafe: naverCafeResults,
-      youtube: youtubeResults
-    });
-  } catch (error) {
-    console.error('검색 처리 중 오류:', error);
-    res.status(500).json({ error: '서버 오류가 발생했습니다' });
+  
+  // 다른 HTTP 메소드는 허용하지 않음
+  else {
+    return res.status(405).json({ error: '허용되지 않는 메소드입니다' });
   }
 } 

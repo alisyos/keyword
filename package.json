@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "postinstall": "npm install --save-dev typescript@5.2.2 @types/react@18.2.33 @types/react-dom@18.2.14 @types/node@20.8.10",
     "start": "next start",
     "lint": "next lint"
   },
@@ -18,13 +17,13 @@
     "openai": "^4.20.0",
     "tailwindcss": "^3.3.5",
     "postcss": "^8.4.31",
-    "autoprefixer": "^10.4.16"
-  },
-  "devDependencies": {
+    "autoprefixer": "^10.4.16",
     "typescript": "5.2.2",
     "@types/node": "20.8.10",
     "@types/react": "18.2.33",
-    "@types/react-dom": "18.2.14",
+    "@types/react-dom": "18.2.14"
+  },
+  "devDependencies": {
     "eslint": "^8.52.0",
     "eslint-config-next": "^14.0.0"
   }
