@@ -186,6 +186,7 @@ const KeywordAnalysis = () => {
   const [analysisData, setAnalysisData] = useState<KeywordAnalysisResult>({ keywords: [], contentType: 'blog' });
   const [activeTab, setActiveTab] = useState<'keywords' | 'sentiment' | 'contentSentiment' | 'adSuggestions'>('keywords');
   const [generating, setGenerating] = useState<boolean>(false);
+  const [productDescription, setProductDescription] = useState<string>('');
   
   useEffect(() => {
     const fetchKeywordAnalysis = async () => {
@@ -231,7 +232,8 @@ const KeywordAnalysis = () => {
     try {
       const response = await axios.post('/api/generate-ad-suggestions', {
         keyword,
-        contentType: type
+        contentType: type,
+        productDescription
       });
       setAnalysisData(prev => 
         prev ? { ...prev, adSuggestions: response.data.adSuggestions } : null
@@ -616,11 +618,29 @@ const KeywordAnalysis = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
                             </svg>
                             <h3 className="text-lg font-medium text-gray-800 mb-2 text-center">광고 소재 생성</h3>
-                            <p className="text-gray-600 text-center mb-6">
+                            <p className="text-gray-600 text-center mb-4">
                               분석 결과를 기반으로 맞춤형 광고 소재를 생성합니다.
-                              <br />
-                              버튼을 클릭하여 시작하세요.
                             </p>
+                            
+                            <div className="w-full max-w-lg mb-6">
+                              <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                <label htmlFor="productDescription" className="block text-sm font-medium text-gray-700 mb-1">
+                                  제품 소개 <span className="text-xs text-gray-500">(선택사항)</span>
+                                </label>
+                                <textarea
+                                  id="productDescription"
+                                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                  placeholder="귀하의 제품/서비스에 대해 간략히 소개해주세요. 이를 바탕으로 더 관련성 높은 광고 소재를 생성합니다."
+                                  rows={4}
+                                  value={productDescription}
+                                  onChange={(e) => setProductDescription(e.target.value)}
+                                ></textarea>
+                                <p className="mt-1 text-xs text-gray-500">
+                                  예: "저희는 친환경 소재로 만든 유아용 장난감을 판매합니다. 안전하고 무독성이며 교육적인 디자인이 특징입니다."
+                                </p>
+                              </div>
+                            </div>
+                            
                             <button
                               onClick={handleGenerateAdSuggestions}
                               className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg shadow-md hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all"
@@ -633,38 +653,62 @@ const KeywordAnalysis = () => {
                           </div>
                         ) : (
                           <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                              {analysisData.adSuggestions.map((ad, index) => (
-                                <div 
-                                  key={index} 
-                                  className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden transform transition-all hover:-translate-y-1 hover:shadow-md"
-                                >
-                                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 py-2 px-4">
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-xs font-medium text-white opacity-90">광고 소재 #{index + 1}</span>
-                                      <span className="text-xs text-white bg-white bg-opacity-20 px-2 py-0.5 rounded">
-                                        {ad.target}
-                                      </span>
+                            <div className="mb-8">
+                              <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-6">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
+                                  <div className="mb-4 sm:mb-0">
+                                    <h3 className="text-base font-medium text-gray-800 mb-1">새로운 광고 소재 생성</h3>
+                                    <p className="text-sm text-gray-600">제품 정보를 입력하고 새로운 광고 소재를 생성하세요</p>
+                                  </div>
+                                  <button
+                                    onClick={handleGenerateAdSuggestions}
+                                    className="inline-flex items-center px-4 py-2 border border-blue-600 text-blue-600 font-medium rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                                    </svg>
+                                    새로운 소재 생성
+                                  </button>
+                                </div>
+                                
+                                <div className="mt-4">
+                                  <label htmlFor="productDescriptionNew" className="block text-sm font-medium text-gray-700 mb-1">
+                                    제품 소개 <span className="text-xs text-gray-500">(선택사항)</span>
+                                  </label>
+                                  <textarea
+                                    id="productDescriptionNew"
+                                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                    placeholder="귀하의 제품/서비스에 대해 간략히 소개해주세요."
+                                    rows={2}
+                                    value={productDescription}
+                                    onChange={(e) => setProductDescription(e.target.value)}
+                                  ></textarea>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {analysisData.adSuggestions.map((ad, index) => (
+                                  <div 
+                                    key={index} 
+                                    className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden transform transition-all hover:-translate-y-1 hover:shadow-md"
+                                  >
+                                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 py-2 px-4">
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-xs font-medium text-white opacity-90">광고 소재 #{index + 1}</span>
+                                        <span className="text-xs text-white bg-white bg-opacity-20 px-2 py-0.5 rounded">
+                                          {ad.target}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="p-4">
+                                      <h3 className="text-lg font-semibold text-gray-800 mb-3">{ad.headline}</h3>
+                                      <p className="text-gray-600 text-sm mb-2">{ad.description}</p>
                                     </div>
                                   </div>
-                                  <div className="p-4">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-3">{ad.headline}</h3>
-                                    <p className="text-gray-600 text-sm mb-2">{ad.description}</p>
-                                  </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                            <div className="flex justify-center mt-8">
-                              <button
-                                onClick={handleGenerateAdSuggestions}
-                                className="inline-flex items-center px-5 py-2 border border-blue-600 text-blue-600 font-medium rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                                </svg>
-                                새로운 광고 소재 생성하기
-                              </button>
-                            </div>
+                            
                             <div className="mt-8 text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">
                               <p className="mb-1">* 위 광고 소재는 수집된 데이터와 분석 결과를 기반으로 AI가 생성한 추천 소재입니다.</p>
                               <p className="mb-1">* 실제 사용 전 검토와 수정이 필요할 수 있습니다.</p>

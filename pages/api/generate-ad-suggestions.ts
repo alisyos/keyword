@@ -20,7 +20,8 @@ interface AdSuggestion {
 // 광고 제안 생성 함수
 async function generateAdSuggestions(
   keyword: string,
-  contentType: string
+  contentType: string,
+  productDescription: string = ''
 ): Promise<AdSuggestion[]> {
   try {
     // 네이버 API로 컨텐츠 가져오기
@@ -56,6 +57,11 @@ async function generateAdSuggestions(
       return `제목: ${title}\n내용: ${description}`;
     }).join('\n\n');
 
+    // 제품 설명 문자열 준비
+    const productInfo = productDescription
+      ? `\n\n제품 정보: ${productDescription}`
+      : '';
+
     // OpenAI를 사용한 광고 소재 생성
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
@@ -63,7 +69,7 @@ async function generateAdSuggestions(
       messages: [
         {
           role: "system",
-          content: `당신은 전문 광고 카피라이터입니다. 주어진 데이터를 분석하여 10개의 광고 소재를 생성해주세요.
+          content: `당신은 전문 광고 카피라이터입니다. 주어진 데이터를 분석하여 10개의 맞춤형 광고 소재를 생성해주세요.
 
 응답은 반드시 다음과 같은 JSON 형식이어야 합니다:
 {
@@ -77,7 +83,9 @@ async function generateAdSuggestions(
 }
 
 광고 소재 생성 시 다음 사항을 고려하세요:
-- 실제 데이터에서 추출한 인사이트를 활용
+- 키워드와 관련된 실제 데이터에서 추출한 인사이트를 활용
+- 제공된 제품/서비스 정보가 있다면 이를 중심으로 광고 소재 작성
+- 제품/서비스의 특징과 이점을 강조
 - 긍정적인 감정과 키워드를 강조
 - 타겟 고객층을 구체적으로 정의
 - 설득력 있는 문구 사용
@@ -89,9 +97,9 @@ async function generateAdSuggestions(
           content: `검색 키워드: ${keyword}
 
 분석된 컨텐츠:
-${topContent}
+${topContent}${productInfo}
 
-위 정보를 바탕으로 10개의 광고 소재를 생성해주세요.`
+위 정보를 바탕으로 10개의 맞춤형 광고 소재를 생성해주세요. ${productDescription ? '제공된 제품/서비스 정보에 특화된 광고 소재를 만들어 주세요.' : ''}`
         }
       ]
     });
@@ -119,13 +127,13 @@ ${topContent}
 
   } catch (error) {
     console.error('광고 소재 생성 중 오류:', error);
-    return generateDefaultAdSuggestions(keyword);
+    return generateDefaultAdSuggestions(keyword, productDescription);
   }
 }
 
 // 기본 광고 소재 생성 함수
-function generateDefaultAdSuggestions(keyword: string): AdSuggestion[] {
-  return [
+function generateDefaultAdSuggestions(keyword: string, productDescription: string = ''): AdSuggestion[] {
+  const defaultAds = [
     {
       headline: `${keyword}로 지금 바로 시작하세요`,
       description: `최고의 ${keyword} 솔루션으로 당신의 문제를 해결해 드립니다. 지금 확인해 보세요!`,
@@ -142,6 +150,24 @@ function generateDefaultAdSuggestions(keyword: string): AdSuggestion[] {
       target: '트렌드에 민감한 사용자'
     }
   ];
+
+  // 제품 설명이 있는 경우 맞춤형 광고 소재 추가
+  if (productDescription) {
+    defaultAds.push(
+      {
+        headline: `${productDescription.substring(0, 20)}... - ${keyword} 솔루션`,
+        description: `${productDescription.substring(0, 50)}... 지금 바로 확인하고 혜택을 누려보세요!`,
+        target: '관심 있는 잠재 고객'
+      },
+      {
+        headline: `${keyword} 문제, 저희가 해결해 드립니다`,
+        description: `${productDescription.substring(0, 50)}... 특별한 솔루션으로 당신의 요구에 부응합니다.`,
+        target: '문제 해결이 필요한 고객'
+      }
+    );
+  }
+  
+  return defaultAds;
 }
 
 export default async function handler(
@@ -152,14 +178,14 @@ export default async function handler(
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { keyword, contentType = 'blog' } = req.body;
+  const { keyword, contentType = 'blog', productDescription = '' } = req.body;
 
   if (!keyword || typeof keyword !== 'string') {
     return res.status(400).json({ error: '유효한 검색어를 입력해주세요' });
   }
 
   try {
-    const adSuggestions = await generateAdSuggestions(keyword, contentType);
+    const adSuggestions = await generateAdSuggestions(keyword, contentType, productDescription);
     res.status(200).json({ adSuggestions });
   } catch (error) {
     console.error('광고 제안 생성 중 오류:', error);
