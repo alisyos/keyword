@@ -42,7 +42,7 @@ async function searchNaverBlog(keyword: string): Promise<SearchResult> {
   const url = 'https://openapi.naver.com/v1/search/blog.json';
   const params = {
     query: keyword,
-    display: 10,
+    display: 30,
     start: 1,
     sort: 'sim' // 정확도순 정렬
   };
@@ -93,7 +93,7 @@ async function searchNaverCafe(keyword: string): Promise<SearchResult> {
   const url = 'https://openapi.naver.com/v1/search/cafearticle.json';
   const params = {
     query: keyword,
-    display: 10,
+    display: 30,
     start: 1,
     sort: 'sim' // 정확도순 정렬
   };
@@ -163,11 +163,11 @@ async function searchYoutube(keyword: string): Promise<SearchResult> {
     
     videos.push({ title, url, description });
     
-    if (videos.length >= 10) break;
+    if (videos.length >= 30) break;
   }
   
-  // 설명이 없는 비디오도 추출 (10개까지 채우기 위해)
-  if (videos.length < 10) {
+  // 설명이 없는 비디오도 추출 (30개까지 채우기 위해)
+  if (videos.length < 30) {
     while ((match = simpleVideoPattern.exec(html)) !== null) {
       const videoId = match[1];
       const title = match[2];
@@ -178,7 +178,7 @@ async function searchYoutube(keyword: string): Promise<SearchResult> {
         videos.push({ title, url });
       }
       
-      if (videos.length >= 10) break;
+      if (videos.length >= 30) break;
     }
   }
   
