@@ -18,6 +18,14 @@ interface SentimentData {
   negativeKeywords: Array<{ keyword: string; score: number }>;
 }
 
+interface ContentItem {
+  title: string;
+  link: string;
+  description: string;
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  score?: number;
+}
+
 interface AdSuggestion {
   headline: string;
   description: string;
@@ -29,6 +37,7 @@ interface KeywordAnalysisResult {
   sentiment?: SentimentData;
   adSuggestions?: Array<AdSuggestion>;
   contentType?: string;
+  contentItems?: ContentItem[];
 }
 
 // 탭 버튼 컴포넌트
@@ -175,7 +184,7 @@ const KeywordAnalysis = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [analysisData, setAnalysisData] = useState<KeywordAnalysisResult>({ keywords: [], contentType: 'blog' });
-  const [activeTab, setActiveTab] = useState<'keywords' | 'sentiment' | 'adSuggestions'>('keywords');
+  const [activeTab, setActiveTab] = useState<'keywords' | 'sentiment' | 'contentSentiment' | 'adSuggestions'>('keywords');
   const [generating, setGenerating] = useState<boolean>(false);
   
   useEffect(() => {
@@ -276,8 +285,8 @@ const KeywordAnalysis = () => {
           ) : (
             <div>
               {/* 탭 네비게이션 */}
-              <div className="border-b border-gray-200">
-                <nav className="flex -mb-px">
+              <div className="border-b border-gray-200 overflow-x-auto">
+                <nav className="flex -mb-px whitespace-nowrap">
                   <button
                     className={`px-6 py-3 border-b-2 font-medium text-sm sm:text-base transition-colors ${
                       activeTab === 'keywords'
@@ -297,6 +306,16 @@ const KeywordAnalysis = () => {
                     onClick={() => setActiveTab('sentiment')}
                   >
                     감정 분석
+                  </button>
+                  <button
+                    className={`px-6 py-3 border-b-2 font-medium text-sm sm:text-base transition-colors ${
+                      activeTab === 'contentSentiment'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    onClick={() => setActiveTab('contentSentiment')}
+                  >
+                    긍부정평가
                   </button>
                   <button
                     className={`px-6 py-3 border-b-2 font-medium text-sm sm:text-base transition-colors ${
@@ -426,6 +445,98 @@ const KeywordAnalysis = () => {
                       <p className="mb-1">* AI를 통한 감정 분석 결과로, 실제 맥락과 다를 수 있습니다.</p>
                       <p>* 점수는 1-10 사이로, 높을수록 더 강한 감정을 나타냅니다.</p>
                     </div>
+                  </div>
+                )}
+
+                {activeTab === 'contentSentiment' && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-6">개별 컨텐츠 긍부정 평가</h2>
+                    
+                    {!analysisData.contentItems || analysisData.contentItems.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">컨텐츠 항목이 없습니다.</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex justify-between items-center mb-6">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">총 {analysisData.contentItems.length}개 컨텐츠 분석 결과</span>
+                          </div>
+                          
+                          <div className="flex space-x-3">
+                            <div className="flex items-center">
+                              <div className="w-3 h-3 bg-green-400 rounded-full mr-1"></div>
+                              <span className="text-xs text-gray-600">긍정</span>
+                            </div>
+                            <div className="flex items-center">
+                              <div className="w-3 h-3 bg-gray-400 rounded-full mr-1"></div>
+                              <span className="text-xs text-gray-600">중립</span>
+                            </div>
+                            <div className="flex items-center">
+                              <div className="w-3 h-3 bg-red-400 rounded-full mr-1"></div>
+                              <span className="text-xs text-gray-600">부정</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          {analysisData.contentItems.map((item, index) => {
+                            // 감정 색상 및 라벨 결정
+                            let sentimentColor = "bg-gray-400"; // 기본값 (중립)
+                            let sentimentLabel = "중립";
+                            
+                            if (item.sentiment === 'positive') {
+                              sentimentColor = "bg-green-400";
+                              sentimentLabel = "긍정";
+                            } else if (item.sentiment === 'negative') {
+                              sentimentColor = "bg-red-400";
+                              sentimentLabel = "부정";
+                            }
+                            
+                            return (
+                              <div 
+                                key={index} 
+                                className="border border-gray-200 rounded-lg overflow-hidden bg-white hover:shadow-md transition-shadow"
+                              >
+                                <div className="border-l-4 border-l-blue-500 p-4">
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1 pr-4">
+                                      <h3 className="text-base font-medium text-gray-800 mb-1 line-clamp-2" 
+                                        dangerouslySetInnerHTML={{__html: item.title}}></h3>
+                                      <p className="text-sm text-gray-600 line-clamp-2" 
+                                        dangerouslySetInnerHTML={{__html: item.description}}></p>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                      <div className={`w-10 h-10 rounded-full ${sentimentColor} flex items-center justify-center text-white font-medium text-xs`}>
+                                        {item.score ? Math.round(item.score * 10) : '-'}
+                                      </div>
+                                      <span className="text-xs mt-1">{sentimentLabel}</span>
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 flex justify-between items-center">
+                                    <a 
+                                      href={item.link} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 hover:underline"
+                                    >
+                                      원문 보기
+                                    </a>
+                                    <span className="text-xs text-gray-500">#{index + 1}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
+                        <div className="mt-8 text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">
+                          <p className="mb-1">* 각 컨텐츠의 긍부정 평가는 AI가 컨텐츠 내용을 분석한 결과입니다.</p>
+                          <p className="mb-1">* 점수는 1-10 사이로, 높을수록 해당 감정이 강하게 표현된 것입니다.</p>
+                          <p>* 중립은 긍정/부정 경향이 명확하지 않거나 균형을 이루는 경우입니다.</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

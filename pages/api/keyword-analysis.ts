@@ -12,24 +12,39 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+interface KeywordData {
+  keyword: string;
+  frequency: number;
+}
+
+interface SentimentData {
+  positive: number;
+  negative: number;
+  neutral: number;
+  positiveKeywords: Array<{keyword: string; score: number}>;
+  negativeKeywords: Array<{keyword: string; score: number}>;
+}
+
+interface ContentItem {
+  title: string;
+  link: string;
+  description: string;
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  score?: number;
+}
+
+interface AdSuggestion {
+  headline: string;
+  description: string;
+  target: string;
+}
+
 interface KeywordAnalysisResult {
-  keywords: Array<{
-    keyword: string;
-    frequency: number;
-  }>;
-  sentiment?: {
-    positive: number;
-    negative: number;
-    neutral: number;
-    positiveKeywords: Array<{keyword: string, score: number}>;
-    negativeKeywords: Array<{keyword: string, score: number}>;
-  };
-  adSuggestions?: Array<{
-    headline: string;
-    description: string;
-    target: string;
-  }>;
+  keywords: KeywordData[];
+  sentiment?: SentimentData;
   contentType?: string;
+  contentItems?: ContentItem[];
+  adSuggestions?: AdSuggestion[];
 }
 
 // 한국어 텍스트에서 의미 있는 단어 추출 함수
@@ -360,7 +375,7 @@ export default async function handler(
     
     const params = {
       query: keyword,
-      display: 20,
+      display: 30,
       start: 1,
       sort: 'sim'
     };
@@ -408,7 +423,7 @@ export default async function handler(
           });
           
           index++;
-          if (youtubeItems.length >= 20) break;
+          if (youtubeItems.length >= 30) break;
         }
       } catch (error) {
         console.error('유튜브 데이터 가져오기 오류:', error);
@@ -416,17 +431,24 @@ export default async function handler(
       }
     }
     
+    // 사용할 항목 결정
+    const contentItems = contentType === 'youtube' ? youtubeItems : items;
+    
     // 키워드 분석 수행
-    const keywordResult = await analyzeKeywords(contentType === 'youtube' ? youtubeItems : items);
+    const keywordResult = await analyzeKeywords(contentItems);
     
     // 감정 분석 수행
-    const sentimentResult = await analyzeSentiment(contentType === 'youtube' ? youtubeItems : items);
+    const sentimentResult = await analyzeSentiment(contentItems);
     
-    // 결과 합치기 (광고 제안 제외)
+    // 개별 컨텐츠 긍부정 평가 수행
+    const contentSentiments = await analyzeContentSentiments(contentItems);
+    
+    // 결과 합치기
     const result: KeywordAnalysisResult = {
       ...keywordResult,
       sentiment: sentimentResult,
-      contentType
+      contentType,
+      contentItems: contentSentiments
     };
     
     // 응답 반환
@@ -434,5 +456,98 @@ export default async function handler(
   } catch (error) {
     console.error('키워드 분석 처리 중 오류:', error);
     res.status(500).json({ error: '서버 오류가 발생했습니다' });
+  }
+}
+
+// 개별 컨텐츠 항목 감정 분석 함수
+async function analyzeContentSentiments(items: any[]): Promise<ContentItem[]> {
+  if (!items || items.length === 0) {
+    return [];
+  }
+  
+  try {
+    // 비용 효율성을 위해 최대 30개까지만 분석
+    const itemsToAnalyze = items.slice(0, 30);
+    
+    // 각 아이템의 제목과 내용에서 HTML 태그 제거하고 감정 분석 준비
+    const textsToAnalyze = itemsToAnalyze.map(item => {
+      const title = item.title.replace(/<[^>]*>/g, '');
+      const description = item.description.replace(/<[^>]*>/g, '');
+      return `제목: ${title}\n내용: ${description}`;
+    });
+    
+    // 한 번의 API 호출로 모든 아이템 분석 요청
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: `당신은 텍스트의 감정을 분석하는 전문가입니다. 여러 텍스트를 분석하여 각각의 감정(긍정/부정/중립)과 그 강도를 평가해주세요.`
+        },
+        {
+          role: "user",
+          content: `다음은 ${itemsToAnalyze.length}개의 컨텐츠 항목입니다. 각 항목에 대해 감정 분석을 수행하고 JSON 배열 형식으로 결과를 반환해주세요.
+각 항목은 "positive"(긍정), "negative"(부정), "neutral"(중립) 중 하나의 감정으로 분류하고, 0.0에서 1.0 사이의 점수로 그 강도를 표시해주세요.
+점수가 높을수록 해당 감정이 강하게 표현된 것입니다.
+
+반환 형식:
+[
+  {"index": 0, "sentiment": "positive", "score": 0.8},
+  {"index": 1, "sentiment": "negative", "score": 0.7},
+  {"index": 2, "sentiment": "neutral", "score": 0.5},
+  ...
+]
+
+분석할 컨텐츠:
+${textsToAnalyze.map((text, idx) => `[${idx}] ${text}`).join('\n\n')}`
+        }
+      ],
+      temperature: 0.2,
+    });
+
+    const responseText = completion.choices[0].message.content;
+    if (!responseText) {
+      throw new Error('응답이 비어있습니다');
+    }
+
+    try {
+      // JSON 형식 추출 및 파싱
+      const jsonMatch = responseText.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : '';
+      const sentimentResults = JSON.parse(jsonStr);
+      
+      // 원본 아이템에 감정 분석 결과 추가
+      return itemsToAnalyze.map((item, index) => {
+        const result = sentimentResults.find((r: any) => r.index === index);
+        
+        return {
+          title: item.title,
+          link: item.link,
+          description: item.description,
+          sentiment: result ? result.sentiment : 'neutral',
+          score: result ? result.score : 0.5
+        };
+      });
+    } catch (error) {
+      console.error('개별 컨텐츠 감정 분석 결과 파싱 오류:', error);
+      // 오류 발생 시 기본값 반환
+      return itemsToAnalyze.map(item => ({
+        title: item.title,
+        link: item.link,
+        description: item.description,
+        sentiment: 'neutral',
+        score: 0.5
+      }));
+    }
+  } catch (error) {
+    console.error('개별 컨텐츠 감정 분석 오류:', error);
+    // 오류 발생 시 기본값 반환
+    return items.slice(0, 30).map(item => ({
+      title: item.title,
+      link: item.link,
+      description: item.description,
+      sentiment: 'neutral',
+      score: 0.5
+    }));
   }
 } 
