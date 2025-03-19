@@ -726,7 +726,9 @@ const KeywordAnalysis = () => {
         </div>
         
         <div className="text-center text-sm text-gray-500 mt-6">
-          © 2024 키워드 인사이트 - 모든 콘텐츠 분석 결과는 참고용으로만 사용하세요.
+          © 2025 GPTKOREA 키워드 분석 서비스. All rights reserved.
+          <br />
+          네이버와 유튜브 검색 데이터를 활용한 키워드 분석 서비스입니다.
         </div>
       </div>
     </div>

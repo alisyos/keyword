@@ -170,8 +170,8 @@ export default function Home() {
       <footer className="bg-white border-t border-gray-200 mt-16">
         <div className="max-w-6xl mx-auto px-4 py-8">
           <div className="text-center text-gray-600 text-sm">
-            <p>© 2024 키워드 분석 서비스. All rights reserved.</p>
-            <p className="mt-2">네이버 검색 API와 유튜브 데이터를 활용한 키워드 분석 서비스입니다.</p>
+            <p>© 2025 GPTKOREA 키워드 분석 서비스. All rights reserved.</p>
+            <p className="mt-2">네이버와 유튜브 검색 데이터를 활용한 키워드 분석 서비스입니다.</p>
           </div>
         </div>
       </footer>
