@@ -458,6 +458,57 @@ const KeywordAnalysis = () => {
                       </div>
                     ) : (
                       <div>
+                        {/* 컨텐츠 감정 분석 합계 차트 추가 */}
+                        <div className="bg-white border border-gray-100 rounded-lg p-6 mb-8 shadow-sm">
+                          <h3 className="font-semibold text-gray-800 mb-4 text-center">긍부정 분석 요약</h3>
+                          
+                          {(() => {
+                            // 긍정, 부정, 중립 개수 계산
+                            const positive = analysisData.contentItems.filter(item => item.sentiment === 'positive').length;
+                            const negative = analysisData.contentItems.filter(item => item.sentiment === 'negative').length;
+                            const neutral = analysisData.contentItems.filter(item => item.sentiment === 'neutral').length;
+                            
+                            // 백분율 계산
+                            const total = analysisData.contentItems.length;
+                            const positivePercent = Math.round((positive / total) * 100);
+                            const negativePercent = Math.round((negative / total) * 100);
+                            const neutralPercent = 100 - positivePercent - negativePercent;
+                            
+                            return (
+                              <div className="flex flex-col md:flex-row justify-center items-center gap-8">
+                                <DonutChart
+                                  positive={positive}
+                                  negative={negative}
+                                  neutral={neutral}
+                                />
+                                
+                                <div className="flex flex-col gap-4">
+                                  <div className="grid grid-cols-3 gap-3 text-center">
+                                    <div className="bg-green-50 p-3 rounded-lg">
+                                      <div className="text-2xl font-bold text-green-600">{positive}</div>
+                                      <div className="text-xs text-gray-600">긍정 컨텐츠</div>
+                                      <div className="text-sm font-medium text-green-600">{positivePercent}%</div>
+                                    </div>
+                                    <div className="bg-gray-50 p-3 rounded-lg">
+                                      <div className="text-2xl font-bold text-gray-600">{neutral}</div>
+                                      <div className="text-xs text-gray-600">중립 컨텐츠</div>
+                                      <div className="text-sm font-medium text-gray-600">{neutralPercent}%</div>
+                                    </div>
+                                    <div className="bg-red-50 p-3 rounded-lg">
+                                      <div className="text-2xl font-bold text-red-600">{negative}</div>
+                                      <div className="text-xs text-gray-600">부정 컨텐츠</div>
+                                      <div className="text-sm font-medium text-red-600">{negativePercent}%</div>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-500 text-center md:text-left">
+                                    총 {total}개 컨텐츠 중 긍정적 컨텐츠가 {positivePercent}%를 차지합니다.
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        
                         <div className="flex justify-between items-center mb-6">
                           <div className="flex items-center space-x-2">
                             <span className="text-sm text-gray-600">총 {analysisData.contentItems.length}개 컨텐츠 분석 결과</span>
