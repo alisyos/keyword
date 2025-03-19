@@ -177,109 +177,96 @@ async function generateAdSuggestions(
   // HTML 태그 제거 함수
   const removeHtmlTags = (text: string) => text.replace(/<[^>]*>/g, '');
   
-  // 상위 5개 블로그 컨텐츠 추출
-  const topBlogContent = blogItems.slice(0, 5).map(item => {
-    const title = removeHtmlTags(item.title);
-    const description = removeHtmlTags(item.description);
-    return `제목: ${title}\n내용: ${description}`;
-  }).join('\n\n');
-  
-  // 상위 키워드 추출
-  const topKeywords = keywords.slice(0, 5).map(k => k.keyword).join(', ');
-  
-  // 감정 분석 정보 가공
-  let sentimentInfo = '';
-  if (sentiment) {
-    const positiveKeywords = sentiment.positiveKeywords.map(k => k.keyword).join(', ');
-    const negativeKeywords = sentiment.negativeKeywords.map(k => k.keyword).join(', ');
-    sentimentInfo = `
+  try {
+    // 상위 5개 블로그 컨텐츠 추출
+    const topBlogContent = blogItems.slice(0, 5).map(item => {
+      const title = removeHtmlTags(item.title);
+      const description = removeHtmlTags(item.description);
+      return `제목: ${title}\n내용: ${description}`;
+    }).join('\n\n');
+    
+    // 상위 키워드 추출
+    const topKeywords = keywords.slice(0, 5).map(k => k.keyword).join(', ');
+    
+    // 감정 분석 정보 가공
+    let sentimentInfo = '';
+    if (sentiment) {
+      const positiveKeywords = sentiment.positiveKeywords.map(k => k.keyword).join(', ');
+      const negativeKeywords = sentiment.negativeKeywords.map(k => k.keyword).join(', ');
+      sentimentInfo = `
 긍정적 비율: ${sentiment.positive}%
 부정적 비율: ${sentiment.negative}%
 중립적 비율: ${sentiment.neutral}%
 긍정적 키워드: ${positiveKeywords}
-부정적 키워드: ${negativeKeywords}
-`;
-  }
-  
-  try {
+부정적 키워드: ${negativeKeywords}`;
+    }
+
     // OpenAI를 사용한 광고 소재 생성
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4",
+      temperature: 0.7,
       messages: [
         {
           role: "system",
-          content: `당신은 온라인 광고 전문가입니다. 주어진 키워드, 블로그 컨텐츠, 키워드 분석, 감정 분석 정보를 바탕으로 효과적인 광고 소재 10개를 제안해주세요.
-          
-각 광고 소재는 다음 요소를 포함해야 합니다:
-1. 광고 제목(headline): 눈길을 끌고 클릭을 유도하는 짧은 제목 (최대 30자)
-2. 광고 설명(description): 제품이나 서비스의 가치를 설명하는 내용 (최대 90자)
-3. 타겟 고객(target): 이 광고가 가장 효과적일 것으로 예상되는 대상 고객층
+          content: `당신은 전문 광고 카피라이터입니다. 주어진 데이터를 분석하여 10개의 광고 소재를 생성해주세요.
 
-응답은 다음 JSON 형식으로 제공해주세요:
-[
-  {
-    "headline": "광고 제목",
-    "description": "광고 설명",
-    "target": "타겟 고객"
-  },
-  ...
-]`
+응답은 반드시 다음과 같은 JSON 형식이어야 합니다:
+{
+  "ads": [
+    {
+      "headline": "광고 제목 (45자 이내)",
+      "description": "광고 설명 (90자 이내)",
+      "target": "타겟 고객층"
+    }
+  ]
+}
+
+광고 소재 생성 시 다음 사항을 고려하세요:
+- 실제 데이터에서 추출한 인사이트를 활용
+- 긍정적인 감정과 키워드를 강조
+- 타겟 고객층을 구체적으로 정의
+- 설득력 있는 문구 사용
+- 실제 사용자 니즈 반영
+- 트렌드와 시의성 반영`
         },
         {
           role: "user",
-          content: `키워드: ${keyword}
+          content: `검색 키워드: ${keyword}
 
-블로그 컨텐츠 샘플:
+분석된 컨텐츠:
 ${topBlogContent}
 
-관련 상위 키워드: ${topKeywords}
+주요 키워드: ${topKeywords}
 
-감정 분석 정보:
+감정 분석 결과:
 ${sentimentInfo}
 
-10개의 광고 소재 제안을 JSON 배열 형식으로 제공해주세요.`
+위 정보를 바탕으로 10개의 광고 소재를 생성해주세요.`
         }
-      ],
-      response_format: { type: "json_object" }
+      ]
     });
 
-    const responseText = completion.choices[0].message.content || "[]";
-    console.log('OpenAI 응답:', responseText); // 응답 로그 추가
-    
-    try {
-      const parsedData = JSON.parse(responseText);
-      // 응답이 배열인지 확인하고 처리
-      if (Array.isArray(parsedData)) {
-        return parsedData;
-      } else if (parsedData && Array.isArray(parsedData.ads)) {
-        // 일부 응답은 { ads: [...] } 형태로 올 수 있음
-        return parsedData.ads;
-      } else if (parsedData && typeof parsedData === 'object') {
-        // JSON 객체 형태로 왔을 경우 기본 형식으로 변환
-        const fallbackSuggestions = [];
-        for (let i = 1; i <= 10; i++) {
-          if (parsedData[`ad${i}`] || parsedData[i]) {
-            const adData = parsedData[`ad${i}`] || parsedData[i];
-            fallbackSuggestions.push({
-              headline: adData.headline || adData.title || `광고 제목 ${i}`,
-              description: adData.description || adData.content || `광고 설명 ${i}`,
-              target: adData.target || adData.audience || '일반 사용자'
-            });
-          }
-        }
-        if (fallbackSuggestions.length > 0) {
-          return fallbackSuggestions;
-        }
-      }
-      
-      // 위 모든 방법이 실패하면 하드코딩된 기본 광고 소재 제공
-      return generateDefaultAdSuggestions(keyword, keywords);
-    } catch (parseError) {
-      console.error('응답 파싱 중 오류:', parseError);
+    const responseText = completion.choices[0].message.content;
+    if (!responseText) {
+      console.error('GPT 응답이 비어있습니다.');
       return generateDefaultAdSuggestions(keyword, keywords);
     }
+
+    try {
+      const suggestions = JSON.parse(responseText);
+      if (Array.isArray(suggestions.ads) && suggestions.ads.length > 0) {
+        return suggestions.ads.slice(0, 10);
+      } else {
+        console.error('GPT 응답이 올바른 형식이 아닙니다:', responseText);
+        return generateDefaultAdSuggestions(keyword, keywords);
+      }
+    } catch (parseError) {
+      console.error('GPT 응답 파싱 중 오류:', parseError, 'Response:', responseText);
+      return generateDefaultAdSuggestions(keyword, keywords);
+    }
+
   } catch (error) {
-    console.error('광고 제안 생성 중 오류:', error);
+    console.error('광고 소재 생성 중 오류:', error);
     return generateDefaultAdSuggestions(keyword, keywords);
   }
 }
@@ -373,7 +360,7 @@ export default async function handler(
     
     const params = {
       query: keyword,
-      display: 20, // 분석을 위해 더 많은 결과 가져오기
+      display: 20,
       start: 1,
       sort: 'sim'
     };
@@ -403,12 +390,10 @@ export default async function handler(
         let match;
         let descMatches = [];
         
-        // 설명 추출
         while ((match = descriptionPattern.exec(html)) !== null) {
           descMatches.push(match[1]);
         }
         
-        // 비디오 정보 추출
         let index = 0;
         while ((match = videoPattern.exec(html)) !== null) {
           const videoId = match[1];
@@ -427,7 +412,6 @@ export default async function handler(
         }
       } catch (error) {
         console.error('유튜브 데이터 가져오기 오류:', error);
-        // 유튜브 데이터 가져오기 실패 시 빈 배열 사용
         youtubeItems = [];
       }
     }
@@ -438,19 +422,10 @@ export default async function handler(
     // 감정 분석 수행
     const sentimentResult = await analyzeSentiment(contentType === 'youtube' ? youtubeItems : items);
     
-    // 광고 제안 생성
-    const adSuggestions = await generateAdSuggestions(
-      keyword,
-      contentType === 'youtube' ? youtubeItems : items,
-      keywordResult.keywords,
-      sentimentResult
-    );
-    
-    // 결과 합치기
+    // 결과 합치기 (광고 제안 제외)
     const result: KeywordAnalysisResult = {
       ...keywordResult,
       sentiment: sentimentResult,
-      adSuggestions,
       contentType
     };
     
