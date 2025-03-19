@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
+import { Box, CircularProgress, Typography, Grid, Card, CardContent, Button } from '@mui/material';
+import { AutoAwesomeIcon } from '@mui/icons-material';
 
 interface KeywordData {
   keyword: string;
@@ -153,6 +155,7 @@ const KeywordAnalysis = () => {
   const [error, setError] = useState('');
   const [analysisData, setAnalysisData] = useState<AnalysisResult>({ keywords: [], contentType: 'blog' });
   const [activeTab, setActiveTab] = useState<'keywords' | 'sentiment' | 'adSuggestions'>('keywords');
+  const [generating, setGenerating] = useState<boolean>(false);
   
   useEffect(() => {
     const fetchKeywordAnalysis = async () => {
@@ -187,6 +190,51 @@ const KeywordAnalysis = () => {
       default: return '콘텐츠';
     }
   };
+  
+  async function handleAnalyzeClick() {
+    if (!keyword) {
+      setError('검색어를 입력해주세요.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post('/api/keyword-analysis', {
+        keyword,
+        contentType: type
+      });
+      setAnalysisData(response.data);
+    } catch (err) {
+      console.error('Error fetching analysis data:', err);
+      setError('분석 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGenerateAdSuggestions() {
+    if (!keyword) {
+      setError('검색어를 입력해주세요.');
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const response = await axios.post('/api/generate-ad-suggestions', {
+        keyword,
+        contentType: type
+      });
+      setAnalysisData(prev => 
+        prev ? { ...prev, adSuggestions: response.data.adSuggestions } : null
+      );
+    } catch (err) {
+      console.error('Error generating ad suggestions:', err);
+      setError('광고 제안 생성 중 오류가 발생했습니다.');
+    } finally {
+      setGenerating(false);
+    }
+  }
   
   return (
     <div className="min-h-screen bg-gray-100 py-12">
@@ -401,7 +449,7 @@ const KeywordAnalysis = () => {
                 <>
                   <h2 className="text-xl font-semibold mb-4">키워드 광고 소재 제안</h2>
                   
-                  {!analysisData.adSuggestions || analysisData.adSuggestions.length === 0 ? (
+                  {generating ? (
                     <div className="text-center py-8">
                       <div className="animate-pulse mb-4">
                         <div className="h-10 w-10 mx-auto bg-blue-200 rounded-full"></div>
@@ -411,17 +459,58 @@ const KeywordAnalysis = () => {
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        {analysisData.adSuggestions.map((ad, index) => (
-                          <AdCard key={index} ad={ad} index={index} />
-                        ))}
-                      </div>
-                      
-                      <div className="mt-8 text-sm text-gray-500">
-                        <p>* 위 광고 소재는 수집된 데이터와 분석 결과를 기반으로 AI가 생성한 추천 소재입니다.</p>
-                        <p>* 실제 사용 전 검토와 수정이 필요할 수 있습니다.</p>
-                        <p>* 키워드, 타겟 고객, 마케팅 목표에 따라 광고 소재를 조정하세요.</p>
-                      </div>
+                      {!analysisData.adSuggestions || analysisData.adSuggestions.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-3 py-10">
+                          <p className="text-gray-600 text-center text-lg">
+                            생성된 광고 소재가 없습니다.
+                            <br />
+                            아래 버튼을 클릭하여 광고 소재를 생성해보세요.
+                          </p>
+                          <button
+                            onClick={handleGenerateAdSuggestions}
+                            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-md shadow-md transition-all flex items-center space-x-2"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"></path>
+                            </svg>
+                            <span>광고 소재 생성하기</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            {analysisData.adSuggestions.map((ad, index) => (
+                              <div key={index} className="bg-white border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                                <h3 className="text-lg font-semibold text-blue-600 mb-2">
+                                  {ad.headline}
+                                </h3>
+                                <p className="text-gray-700 mb-3">
+                                  {ad.description}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  타겟: {ad.target}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-center mt-6">
+                            <button
+                              onClick={handleGenerateAdSuggestions}
+                              className="bg-white hover:bg-gray-50 text-blue-600 border border-blue-600 font-medium py-2 px-4 rounded-md flex items-center space-x-2 transition-colors"
+                            >
+                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"></path>
+                              </svg>
+                              <span>새로운 광고 소재 생성하기</span>
+                            </button>
+                          </div>
+                          <div className="mt-8 text-sm text-gray-500">
+                            <p>* 위 광고 소재는 수집된 데이터와 분석 결과를 기반으로 AI가 생성한 추천 소재입니다.</p>
+                            <p>* 실제 사용 전 검토와 수정이 필요할 수 있습니다.</p>
+                            <p>* 키워드, 타겟 고객, 마케팅 목표에 따라 광고 소재를 조정하세요.</p>
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
                 </>
