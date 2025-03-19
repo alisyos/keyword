@@ -7,6 +7,9 @@ import { OpenAI } from 'openai';
 const naverClientId = process.env.NAVER_CLIENT_ID;
 const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
 
+// YouTube API 설정
+const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+
 // OpenAI 인스턴스 생성
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -366,6 +369,11 @@ export default async function handler(
     return res.status(500).json({ error: '네이버 API 키가 설정되지 않았습니다.' });
   }
 
+  // 유튜브 API 키 확인 (유튜브 검색인 경우)
+  if (contentType === 'youtube' && !youtubeApiKey) {
+    return res.status(500).json({ error: 'YouTube API 키가 설정되지 않았습니다.' });
+  }
+
   try {
     // 콘텐츠 유형에 따른 API 엔드포인트 선택
     let url = 'https://openapi.naver.com/v1/search/blog.json';
@@ -380,59 +388,46 @@ export default async function handler(
       sort: 'sim'
     };
     
-    const response = await axios.get(url, {
-      params,
-      headers: {
-        'X-Naver-Client-Id': naverClientId,
-        'X-Naver-Client-Secret': naverClientSecret
-      }
-    });
+    let items = [];
     
-    const items = response.data.items || [];
-    
-    // 유튜브인 경우는 직접 크롤링 결과를 사용
-    let youtubeItems = items;
+    // 콘텐츠 유형에 따라 다른 API 호출
     if (contentType === 'youtube') {
-      try {
-        const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(keyword)}`;
-        const youtubeResponse = await axios.get(youtubeUrl);
-        const html = youtubeResponse.data;
-        
-        const videoPattern = /"videoRenderer":{"videoId":"([^"]+)","thumbnail.+?"title":{"runs":\[{"text":"([^"]+)"\}\]/g;
-        const descriptionPattern = /"descriptionSnippet":{"runs":\[{"text":"([^"]+)"/g;
-        
-        youtubeItems = [];
-        let match;
-        let descMatches = [];
-        
-        while ((match = descriptionPattern.exec(html)) !== null) {
-          descMatches.push(match[1]);
+      // YouTube Data API를 사용하여 검색
+      const youtubeUrl = `https://www.googleapis.com/youtube/v3/search`;
+      const youtubeParams = {
+        part: 'snippet',
+        q: keyword,
+        maxResults: 30,
+        type: 'video',
+        key: youtubeApiKey
+      };
+      
+      const youtubeResponse = await axios.get(youtubeUrl, { params: youtubeParams });
+      
+      // YouTube API 응답 형식을 우리 애플리케이션에 맞게 변환
+      items = youtubeResponse.data.items.map(item => ({
+        title: item.snippet.title,
+        link: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+        description: item.snippet.description,
+        thumbnail: item.snippet.thumbnails.medium.url,
+        publishedAt: item.snippet.publishedAt,
+        channelTitle: item.snippet.channelTitle
+      }));
+    } else {
+      // 네이버 API 사용 (블로그, 카페)
+      const response = await axios.get(url, {
+        params,
+        headers: {
+          'X-Naver-Client-Id': naverClientId,
+          'X-Naver-Client-Secret': naverClientSecret
         }
-        
-        let index = 0;
-        while ((match = videoPattern.exec(html)) !== null) {
-          const videoId = match[1];
-          const title = match[2];
-          const description = descMatches[index] || '';
-          const url = `https://www.youtube.com/watch?v=${videoId}`;
-          
-          youtubeItems.push({
-            title,
-            link: url,
-            description
-          });
-          
-          index++;
-          if (youtubeItems.length >= 30) break;
-        }
-      } catch (error) {
-        console.error('유튜브 데이터 가져오기 오류:', error);
-        youtubeItems = [];
-      }
+      });
+      
+      items = response.data.items || [];
     }
     
     // 사용할 항목 결정
-    const contentItems = contentType === 'youtube' ? youtubeItems : items;
+    const contentItems = items;
     
     // 키워드 분석 수행
     const keywordResult = await analyzeKeywords(contentItems);

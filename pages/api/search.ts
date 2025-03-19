@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
-import * as cheerio from 'cheerio';
 import { OpenAI } from 'openai';
 
 // OpenAI 인스턴스 생성
@@ -11,6 +10,9 @@ const openai = new OpenAI({
 // 네이버 API 설정
 const naverClientId = process.env.NAVER_CLIENT_ID;
 const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
+
+// YouTube API 키 설정
+const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
 type SearchResult = {
   summary: string;
@@ -139,67 +141,53 @@ async function searchNaverCafe(keyword: string): Promise<SearchResult> {
   }
 }
 
-// 유튜브 검색 및 스크래핑
+// 유튜브 검색 함수 (YouTube Data API 사용)
 async function searchYoutube(keyword: string): Promise<SearchResult> {
-  const encodedKeyword = encodeURIComponent(keyword);
-  const url = `https://www.youtube.com/results?search_query=${encodedKeyword}`;
-  
-  const response = await axios.get(url);
-  const html = response.data;
-  
-  // 비디오 정보 및 설명 추출을 위한 패턴
-  const videoInfoPattern = /"videoRenderer":{"videoId":"([^"]+)","thumbnail.+?"title":{"runs":\[{"text":"([^"]+)"\}\].+?"descriptionSnippet":{"runs":\[{"text":"([^"]+)"/g;
-  const simpleVideoPattern = /"videoRenderer":{"videoId":"([^"]+)","thumbnail.+?"title":{"runs":\[{"text":"([^"]+)"\}\]/g;
-  
-  const videos: { title: string; url: string; description?: string }[] = [];
-  let match;
-  
-  // 설명이 있는 비디오 먼저 추출
-  while ((match = videoInfoPattern.exec(html)) !== null) {
-    const videoId = match[1];
-    const title = match[2];
-    const description = match[3];
-    const url = `https://www.youtube.com/watch?v=${videoId}`;
+  try {
+    // YouTube Data API를 사용하여 검색
+    const youtubeUrl = 'https://www.googleapis.com/youtube/v3/search';
+    const youtubeParams = {
+      part: 'snippet',
+      q: keyword,
+      maxResults: 30,
+      type: 'video',
+      key: youtubeApiKey
+    };
     
-    videos.push({ title, url, description });
+    const response = await axios.get(youtubeUrl, { params: youtubeParams });
     
-    if (videos.length >= 30) break;
-  }
-  
-  // 설명이 없는 비디오도 추출 (30개까지 채우기 위해)
-  if (videos.length < 30) {
-    while ((match = simpleVideoPattern.exec(html)) !== null) {
-      const videoId = match[1];
-      const title = match[2];
-      const url = `https://www.youtube.com/watch?v=${videoId}`;
-      
-      // 이미 추가된 비디오는 건너뛰기
-      if (!videos.some(v => v.url === url)) {
-        videos.push({ title, url });
+    // YouTube API 응답 형식을 우리 애플리케이션에 맞게 변환
+    const videos = response.data.items.map(item => ({
+      title: item.snippet.title,
+      url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      description: item.snippet.description,
+      thumbnail: item.snippet.thumbnails.medium.url,
+      channelTitle: item.snippet.channelTitle,
+      publishedAt: item.snippet.publishedAt
+    }));
+    
+    // 요약을 위한 텍스트 생성
+    let contentToSummarize = `다음은 유튜브에서 "${keyword}"에 관한 검색 결과입니다:\n\n`;
+    videos.forEach((video, index) => {
+      contentToSummarize += `${index + 1}. 제목: ${video.title}\n`;
+      if (video.description) {
+        contentToSummarize += `설명: ${video.description}\n`;
       }
-      
-      if (videos.length >= 30) break;
-    }
+      contentToSummarize += `채널: ${video.channelTitle}\n\n`;
+    });
+    
+    // OpenAI를 사용한 요약
+    const summary = await summarizeWithAI(contentToSummarize, keyword);
+    
+    // 결과 반환
+    return {
+      summary,
+      links: videos
+    };
+  } catch (error) {
+    console.error('유튜브 API 오류:', error);
+    throw error;
   }
-  
-  // 요약을 위한 텍스트 생성
-  let contentToSummarize = '다음은 유튜브에서 "' + keyword + '"에 관한 검색 결과입니다:\n\n';
-  videos.forEach((video, index) => {
-    contentToSummarize += `${index + 1}. 제목: ${video.title}\n`;
-    if (video.description) {
-      contentToSummarize += `설명: ${video.description}\n`;
-    }
-    contentToSummarize += '\n';
-  });
-  
-  // OpenAI를 사용한 요약
-  const summary = await summarizeWithAI(contentToSummarize, keyword);
-  
-  // 결과 반환
-  return {
-    summary,
-    links: videos
-  };
 }
 
 // OpenAI API를 사용한 텍스트 요약
@@ -239,42 +227,37 @@ export default async function handler(
       return res.status(400).json({ error: '유효한 검색어를 입력해주세요' });
     }
 
+    // 네이버 API 키 확인
+    if (!naverClientId || !naverClientSecret) {
+      return res.status(500).json({ error: '네이버 API 키가 설정되지 않았습니다.' });
+    }
+
+    // 유튜브 API 키 확인
+    if (!youtubeApiKey) {
+      return res.status(500).json({ error: 'YouTube API 키가 설정되지 않았습니다.' });
+    }
+
     try {
-      // 모든 검색 작업 병렬 실행
-      const [naverBlogResults, naverCafeResults, youtubeResults] = await Promise.all([
-        searchNaverBlog(keyword).catch(error => {
-          console.error('네이버 블로그 검색 중 오류:', error);
-          return null;
-        }),
-        searchNaverCafe(keyword).catch(error => {
-          console.error('네이버 카페 검색 중 오류:', error);
-          return null;
-        }),
-        searchYoutube(keyword).catch(error => {
-          console.error('유튜브 검색 중 오류:', error);
-          return null;
-        })
+      // 비동기 함수 병렬 실행
+      const [naverBlogResult, naverCafeResult, youtubeResult] = await Promise.all([
+        searchNaverBlog(keyword),
+        searchNaverCafe(keyword),
+        searchYoutube(keyword)
       ]);
 
-      // 응답 반환
-      return res.status(200).json({
-        naverBlog: naverBlogResults,
-        naverCafe: naverCafeResults,
-        youtube: youtubeResults
-      });
+      const searchResult: SearchResponse = {
+        naverBlog: naverBlogResult,
+        naverCafe: naverCafeResult,
+        youtube: youtubeResult
+      };
+
+      res.status(200).json(searchResult);
     } catch (error) {
-      console.error('검색 처리 중 오류:', error);
-      return res.status(500).json({ error: '서버 오류가 발생했습니다' });
+      console.error('검색 요청 처리 중 오류:', error);
+      res.status(500).json({ error: '서버 오류가 발생했습니다' });
     }
-  }
-  
-  // GET 요청 처리
-  else if (req.method === 'GET') {
-    return res.status(200).json({ message: '이 API는 POST 요청을 통해 키워드 검색 결과를 제공합니다.' });
-  }
-  
-  // 다른 HTTP 메소드는 허용하지 않음
-  else {
-    return res.status(405).json({ error: '허용되지 않는 메소드입니다' });
+  } else {
+    res.setHeader('Allow', ['POST']);
+    res.status(405).json({ message: `Method ${req.method} Not Allowed` });
   }
 } 
