@@ -152,7 +152,7 @@ const KeywordAnalysis = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [analysisData, setAnalysisData] = useState<AnalysisResult>({ keywords: [], contentType: 'blog' });
-  const [activeTab, setActiveTab] = useState<'keywords' | 'sentiment' | 'adSuggestions'>('adSuggestions');
+  const [activeTab, setActiveTab] = useState<'keywords' | 'sentiment' | 'adSuggestions'>('keywords');
   
   useEffect(() => {
     const fetchKeywordAnalysis = async () => {
