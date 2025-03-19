@@ -34,50 +34,96 @@ const ResultSection = ({
   if (!data) return null;
 
   const handleOpenAnalysis = () => {
-    window.open(`/keyword-analysis?keyword=${encodeURIComponent(searchKeyword || '')}&type=${analysisType}`, '_blank', 'width=800,height=600');
+    window.open(`/keyword-analysis?keyword=${encodeURIComponent(searchKeyword || '')}&type=${analysisType}`, '_blank', 'width=1000,height=800');
+  };
+
+  // 플랫폼별 아이콘 선택
+  const getPlatformIcon = () => {
+    switch (analysisType) {
+      case 'blog':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5z" />
+            <path d="M11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z" />
+          </svg>
+        );
+      case 'cafe':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V3zm1 4a1 1 0 100 2h12a1 1 0 100-2H4zm0 4a1 1 0 100 2h12a1 1 0 100-2H4zm0 4a1 1 0 100 2h12a1 1 0 100-2H4z" clipRule="evenodd" />
+          </svg>
+        );
+      case 'youtube':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+          </svg>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">{title}</h2>
-        {showAnalysisButton && searchKeyword && (
-          <button
-            onClick={handleOpenAnalysis}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
-          >
-            세부 분석
-          </button>
-        )}
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8 transition-all hover:shadow-xl">
+      <div className="border-b border-gray-100">
+        <div className="px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center
+              ${analysisType === 'blog' ? 'bg-green-100 text-green-600' : 
+                analysisType === 'cafe' ? 'bg-blue-100 text-blue-600' : 
+                'bg-red-100 text-red-600'}`}>
+              {getPlatformIcon()}
+            </div>
+            <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+          </div>
+          {showAnalysisButton && searchKeyword && (
+            <button
+              onClick={handleOpenAnalysis}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+              </svg>
+              세부 분석
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-2">요약</h3>
-        <p className="text-gray-700 whitespace-pre-line">{data.summary}</p>
-      </div>
-      
-      {data.links && data.links.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-2">관련 링크</h3>
-          <ul className="list-none space-y-4">
-            {data.links.map((link, index) => (
-              <li key={index} className="border-b border-gray-100 pb-3">
-                <a 
-                  href={link.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline font-medium block mb-1"
-                >
-                  {link.title}
-                </a>
-                {link.description && (
-                  <p className="text-sm text-gray-600 line-clamp-2">{link.description}</p>
-                )}
-              </li>
-            ))}
-          </ul>
+      <div className="p-6">
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">주요 내용 요약</h3>
+          <div className="bg-gray-50 rounded-xl p-4 text-gray-600">
+            <p className="whitespace-pre-line">{data.summary}</p>
+          </div>
         </div>
-      )}
+
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">관련 콘텐츠</h3>
+          <div className="space-y-4">
+            {data.links.map((link, index) => (
+              <a
+                key={index}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all"
+              >
+                <h4 className="text-indigo-600 font-medium mb-2 line-clamp-2">
+                  {link.title}
+                </h4>
+                {link.description && (
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {link.description}
+                  </p>
+                )}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -88,23 +134,23 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results, searchKeyword })
   if (!hasResults) return null;
 
   return (
-    <div>
+    <div className="space-y-8">
       <ResultSection 
-        title="네이버 블로그 결과" 
+        title="네이버 블로그 분석" 
         data={results.naverBlog} 
         showAnalysisButton={true}
         searchKeyword={searchKeyword}
         analysisType="blog"
       />
       <ResultSection 
-        title="네이버 카페 결과" 
+        title="네이버 카페 분석" 
         data={results.naverCafe}
         showAnalysisButton={true}
         searchKeyword={searchKeyword}
         analysisType="cafe"
       />
       <ResultSection 
-        title="유튜브 결과" 
+        title="유튜브 콘텐츠 분석" 
         data={results.youtube}
         showAnalysisButton={true}
         searchKeyword={searchKeyword}
