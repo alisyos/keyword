@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import SearchResults from '../components/SearchResults';
 import Head from 'next/head';
+import Link from 'next/link';
 
 export default function Home() {
   const [keyword, setKeyword] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState(null);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('blog');
 
   const handleSearch = async () => {
     if (!keyword.trim()) {
@@ -19,7 +21,7 @@ export default function Home() {
       setLoading(true);
       setError('');
       const response = await axios.post('/api/search', { keyword });
-      setResults(response.data);
+      setSearchResults(response.data);
     } catch (err) {
       console.error('검색 중 오류:', err);
       setError('검색 중 오류가 발생했습니다.');
@@ -35,10 +37,10 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <Head>
-        <title>키워드 분석 서비스</title>
-        <meta name="description" content="네이버 블로그, 카페, 유튜브의 콘텐츠를 분석하여 키워드 인사이트를 제공하는 서비스입니다." />
+        <title>키워드 분석 서비스 | GPTKOREA</title>
+        <meta name="description" content="네이버 블로그, 카페, 유튜브에서 키워드 관련 컨텐츠를 검색하고 분석하세요." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -118,7 +120,7 @@ export default function Home() {
         </div>
 
         {/* 검색 결과 */}
-        {(loading || results) && (
+        {(loading || searchResults) && (
           <div className="transition-all duration-300 ease-in-out">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-12">
@@ -126,13 +128,13 @@ export default function Home() {
                 <p className="mt-4 text-gray-600">키워드를 분석하고 있습니다...</p>
               </div>
             ) : (
-              <SearchResults results={results} searchKeyword={keyword} />
+              <SearchResults results={searchResults} searchKeyword={keyword} />
             )}
           </div>
         )}
 
         {/* 서비스 설명 섹션 */}
-        {!results && !loading && (
+        {!searchResults && !loading && (
           <div className="grid md:grid-cols-3 gap-8 mt-16">
             <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
