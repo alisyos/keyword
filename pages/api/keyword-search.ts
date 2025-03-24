@@ -14,6 +14,7 @@ type SearchResponse = {
   naverBlog: SearchResult | null;
   naverCafe: SearchResult | null;
   youtube: SearchResult | null;
+  naverNews: SearchResult | null;
 };
 
 // 네이버 블로그 데이터 가져오기 (Mock)
@@ -103,9 +104,38 @@ async function fetchYoutubeData(keyword: string): Promise<SearchResult> {
   }
 }
 
+// 네이버 뉴스 데이터 가져오기 (Mock)
+async function fetchNaverNewsData(keyword: string): Promise<SearchResult> {
+  try {
+    return {
+      summary: `네이버 뉴스에서 "${keyword}"에 관한 최신 보도와 기사를 확인할 수 있습니다. 다양한 언론사들이 이 주제에 대한 소식, 분석, 그리고 전문가 인터뷰를 제공하고 있습니다. 최근 트렌드와 관련된 다양한 관점을 확인할 수 있습니다.`,
+      links: [
+        {
+          title: `[속보] ${keyword} 관련 최신 개발 동향`,
+          url: 'https://news.naver.com/example1',
+          description: '최근 발표된 중요한 정보와 업계 전문가들의 분석을 담고 있습니다.',
+        },
+        {
+          title: `${keyword}가 미치는 영향 심층 분석`,
+          url: 'https://news.naver.com/example2',
+          description: '다양한 측면에서 미치는 영향을 데이터를 기반으로 분석한 기사입니다.',
+        },
+        {
+          title: `전문가 인터뷰: ${keyword}의 미래 전망`,
+          url: 'https://news.naver.com/example3',
+          description: '해당 분야 최고 전문가들이 전망하는 향후 발전 방향과 주요 변화에 대한 인사이트입니다.',
+        },
+      ],
+    };
+  } catch (error) {
+    console.error('네이버 뉴스 데이터 요청 중 오류:', error);
+    throw error;
+  }
+}
+
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<SearchResponse | { error: string }>
+  res: NextApiResponse<SearchResponse | { error: string } | { message: string }>
 ) {
   // POST 요청 처리
   if (req.method === 'POST') {
@@ -117,7 +147,7 @@ export default async function handler(
 
     try {
       // 모든 검색 작업 병렬 실행
-      const [naverBlogResults, naverCafeResults, youtubeResults] = await Promise.all([
+      const [naverBlogResults, naverCafeResults, youtubeResults, naverNewsResults] = await Promise.all([
         fetchNaverBlogData(keyword).catch(error => {
           console.error('네이버 블로그 검색 중 오류:', error);
           return null;
@@ -129,6 +159,10 @@ export default async function handler(
         fetchYoutubeData(keyword).catch(error => {
           console.error('유튜브 검색 중 오류:', error);
           return null;
+        }),
+        fetchNaverNewsData(keyword).catch(error => {
+          console.error('네이버 뉴스 검색 중 오류:', error);
+          return null;
         })
       ]);
 
@@ -136,7 +170,8 @@ export default async function handler(
       return res.status(200).json({
         naverBlog: naverBlogResults,
         naverCafe: naverCafeResults,
-        youtube: youtubeResults
+        youtube: youtubeResults,
+        naverNews: naverNewsResults
       });
     } catch (error) {
       console.error('검색 처리 중 오류:', error);

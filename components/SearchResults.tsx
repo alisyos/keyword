@@ -14,6 +14,7 @@ interface SearchResultsProps {
     naverBlog: ResultData | null;
     naverCafe: ResultData | null;
     youtube: ResultData | null;
+    naverNews: ResultData | null;
   };
   searchKeyword: string;
 }
@@ -65,7 +66,7 @@ const ResultSection = ({
   data: ResultData | null; 
   showAnalysisButton?: boolean;
   searchKeyword?: string;
-  analysisType?: 'blog' | 'cafe' | 'youtube';
+  analysisType?: 'blog' | 'cafe' | 'youtube' | 'news';
 }) => {
   if (!data) return null;
 
@@ -96,6 +97,13 @@ const ResultSection = ({
             <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
           </svg>
         );
+      case 'news':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M2 5a2 2 0 012-2h8a2 2 0 012 2v10a2 2 0 002 2H4a2 2 0 01-2-2V5zm3 1h6v4H5V6zm6 6H5v2h6v-2z" clipRule="evenodd" />
+            <path d="M15 7h1a2 2 0 012 2v5.5a1.5 1.5 0 01-3 0V7z" />
+          </svg>
+        );
       default:
         return null;
     }
@@ -109,6 +117,7 @@ const ResultSection = ({
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center
               ${analysisType === 'blog' ? 'bg-green-100 text-green-600' : 
                 analysisType === 'cafe' ? 'bg-blue-100 text-blue-600' : 
+                analysisType === 'news' ? 'bg-yellow-100 text-yellow-600' :
                 'bg-red-100 text-red-600'}`}>
               {getPlatformIcon()}
             </div>
@@ -165,8 +174,8 @@ const ResultSection = ({
 };
 
 const SearchResults: React.FC<SearchResultsProps> = ({ results, searchKeyword }) => {
-  const [activeTab, setActiveTab] = useState<'blog' | 'cafe' | 'youtube'>('blog');
-  const hasResults = results.naverBlog || results.naverCafe || results.youtube;
+  const [activeTab, setActiveTab] = useState<'blog' | 'cafe' | 'youtube' | 'news'>('blog');
+  const hasResults = results.naverBlog || results.naverCafe || results.youtube || results.naverNews;
 
   if (!hasResults) return null;
 
@@ -213,6 +222,19 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results, searchKeyword })
           >
             유튜브
           </TabButton>
+          <TabButton
+            active={activeTab === 'news'}
+            onClick={() => setActiveTab('news')}
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M2 5a2 2 0 012-2h8a2 2 0 012 2v10a2 2 0 002 2H4a2 2 0 01-2-2V5zm3 1h6v4H5V6zm6 6H5v2h6v-2z" clipRule="evenodd" />
+                <path d="M15 7h1a2 2 0 012 2v5.5a1.5 1.5 0 01-3 0V7z" />
+              </svg>
+            }
+            count={results.naverNews?.links.length || 0}
+          >
+            뉴스
+          </TabButton>
         </div>
       </div>
 
@@ -243,6 +265,15 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results, searchKeyword })
             showAnalysisButton={true}
             searchKeyword={searchKeyword}
             analysisType="youtube"
+          />
+        )}
+        {activeTab === 'news' && (
+          <ResultSection 
+            title="네이버 뉴스 분석" 
+            data={results.naverNews}
+            showAnalysisButton={true}
+            searchKeyword={searchKeyword}
+            analysisType="news"
           />
         )}
       </div>

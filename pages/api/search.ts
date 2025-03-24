@@ -27,6 +27,7 @@ type SearchResponse = {
   naverBlog: SearchResult | null;
   naverCafe: SearchResult | null;
   youtube: SearchResult | null;
+  naverNews: SearchResult | null;
 };
 
 interface NaverSearchItem {
@@ -190,6 +191,57 @@ async function searchYoutube(keyword: string): Promise<SearchResult> {
   }
 }
 
+// 네이버 뉴스 검색 API 사용
+async function searchNaverNews(keyword: string): Promise<SearchResult> {
+  const url = 'https://openapi.naver.com/v1/search/news.json';
+  const params = {
+    query: keyword,
+    display: 30,
+    start: 1,
+    sort: 'sim' // 정확도순 정렬
+  };
+  
+  try {
+    const response = await axios.get(url, {
+      params,
+      headers: {
+        'X-Naver-Client-Id': naverClientId,
+        'X-Naver-Client-Secret': naverClientSecret
+      }
+    });
+    
+    const items: NaverSearchItem[] = response.data.items || [];
+    
+    // HTML 태그 제거 함수
+    const removeHtmlTags = (text: string) => text.replace(/<[^>]*>/g, '');
+    
+    // 요약을 위한 텍스트 생성
+    let contentToSummarize = `다음은 네이버 뉴스에서 "${keyword}"에 관한 검색 결과입니다:\n\n`;
+    
+    items.forEach((item, index) => {
+      const title = removeHtmlTags(item.title);
+      const description = removeHtmlTags(item.description);
+      contentToSummarize += `${index + 1}. 제목: ${title}\n내용: ${description}\n\n`;
+    });
+    
+    // OpenAI를 사용한 요약
+    const summary = await summarizeWithAI(contentToSummarize, keyword);
+    
+    // 결과 반환
+    return {
+      summary,
+      links: items.map(item => ({
+        title: removeHtmlTags(item.title),
+        url: item.link,
+        description: removeHtmlTags(item.description)
+      }))
+    };
+  } catch (error) {
+    console.error('네이버 뉴스 API 오류:', error);
+    throw error;
+  }
+}
+
 // OpenAI API를 사용한 텍스트 요약
 async function summarizeWithAI(content: string, keyword: string): Promise<string> {
   try {
@@ -239,16 +291,18 @@ export default async function handler(
 
     try {
       // 비동기 함수 병렬 실행
-      const [naverBlogResult, naverCafeResult, youtubeResult] = await Promise.all([
+      const [naverBlogResult, naverCafeResult, youtubeResult, naverNewsResult] = await Promise.all([
         searchNaverBlog(keyword),
         searchNaverCafe(keyword),
-        searchYoutube(keyword)
+        searchYoutube(keyword),
+        searchNaverNews(keyword)
       ]);
 
       const searchResult: SearchResponse = {
         naverBlog: naverBlogResult,
         naverCafe: naverCafeResult,
-        youtube: youtubeResult
+        youtube: youtubeResult,
+        naverNews: naverNewsResult
       };
 
       res.status(200).json(searchResult);

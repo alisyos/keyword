@@ -379,6 +379,8 @@ export default async function handler(
     let url = 'https://openapi.naver.com/v1/search/blog.json';
     if (contentType === 'cafe') {
       url = 'https://openapi.naver.com/v1/search/cafearticle.json';
+    } else if (contentType === 'news') {
+      url = 'https://openapi.naver.com/v1/search/news.json';
     }
     
     const params = {
@@ -414,7 +416,7 @@ export default async function handler(
         channelTitle: item.snippet.channelTitle
       }));
     } else {
-      // 네이버 API 사용 (블로그, 카페)
+      // 네이버 API 사용 (블로그, 카페, 뉴스)
       const response = await axios.get(url, {
         params,
         headers: {
