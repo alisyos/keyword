@@ -56,6 +56,47 @@ const TabButton = ({
   );
 };
 
+// 날짜 포맷팅 유틸리티 함수 추가
+const formatDate = (dateString?: string, pubDateString?: string): string => {
+  // 먼저 publishedAt 필드 사용 시도
+  if (dateString) {
+    try {
+      const date = new Date(dateString);
+      
+      // 유효한 날짜인지 확인
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+    } catch (e) {
+      console.error('publishedAt 날짜 포맷 변환 중 오류:', e, dateString);
+    }
+  }
+  
+  // publishedAt이 없거나 유효하지 않은 경우 pubDate 시도
+  if (pubDateString) {
+    try {
+      const date = new Date(pubDateString);
+      
+      // 유효한 날짜인지 확인
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+    } catch (e) {
+      console.error('pubDate 날짜 포맷 변환 중 오류:', e, pubDateString);
+    }
+  }
+  
+  return '';
+};
+
 const ResultSection = ({ 
   title, 
   data, 
@@ -150,23 +191,15 @@ const ResultSection = ({
           <h3 className="text-lg font-semibold text-gray-800 mb-3">관련 콘텐츠</h3>
           <div className="space-y-4">
             {data.links.map((link, index) => {
-              // 작성일 포맷팅
-              let formattedDate = '';
-              if (link.publishedAt) {
-                try {
-                  const date = new Date(link.publishedAt);
-                  // 날짜가 유효한지 확인
-                  if (!isNaN(date.getTime())) {
-                    formattedDate = date.toLocaleDateString('ko-KR', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    });
-                  }
-                } catch (e) {
-                  console.error('날짜 포맷 변환 중 오류:', e);
-                }
-              }
+              // 작성일 포맷팅 - 유틸리티 함수 사용
+              const formattedDate = formatDate(link.publishedAt, (link as any).pubDate);
+              
+              console.log(`[${analysisType}] 링크 ${index}:`, 
+                link.title.substring(0, 20) + '...',
+                'publishedAt:', link.publishedAt,
+                'pubDate:', (link as any).pubDate,
+                'formatted:', formattedDate
+              );
 
               return (
                 <a

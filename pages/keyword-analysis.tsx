@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import { Box, CircularProgress, Typography, Grid, Card, CardContent, Button } from '@mui/material';
-import { AutoAwesomeIcon } from '@mui/icons-material';
+import { AutoAwesome } from '@mui/icons-material';
 
 interface KeywordData {
   keyword: string;
@@ -24,6 +24,7 @@ interface ContentItem {
   description: string;
   sentiment?: 'positive' | 'negative' | 'neutral';
   score?: number;
+  publishedAt?: string;
 }
 
 interface AdSuggestion {
@@ -184,9 +185,20 @@ const KeywordAnalysis = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [analysisData, setAnalysisData] = useState<KeywordAnalysisResult>({ keywords: [], contentType: 'blog' });
-  const [activeTab, setActiveTab] = useState<'keywords' | 'sentiment' | 'contentSentiment' | 'adSuggestions'>('keywords');
+  const [activeTab, setActiveTab] = useState<'keywords' | 'sentiment' | 'contentSentiment' | 'adSuggestions' | 'dateAnalysis'>('keywords');
   const [generating, setGenerating] = useState<boolean>(false);
   const [productDescription, setProductDescription] = useState<string>('');
+  
+  // 해당 콘텐츠 타입이 작성일 분석을 지원하는지 확인
+  const supportsDateAnalysis = type === 'blog' || type === 'youtube' || type === 'news';
+  
+  // 컴포넌트 마운트 시 작성일 분석 초기 탭 설정
+  useEffect(() => {
+    // 카페 컨텐츠인 경우 작성일 분석 탭을 선택했다면 키워드 탭으로 변경
+    if (activeTab === 'dateAnalysis' && !supportsDateAnalysis) {
+      setActiveTab('keywords');
+    }
+  }, [type, supportsDateAnalysis, activeTab]);
   
   useEffect(() => {
     const fetchKeywordAnalysis = async () => {
@@ -245,6 +257,92 @@ const KeywordAnalysis = () => {
       setGenerating(false);
     }
   }
+  
+  // 작성일 기준으로 콘텐츠 분류 함수
+  const categorizeDateRanges = () => {
+    if (!analysisData.contentItems || analysisData.contentItems.length === 0) {
+      return {
+        threeMonths: [],
+        oneYear: [],
+        twoYears: [],
+        older: []
+      };
+    }
+    
+    const now = new Date();
+    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+    const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
+    
+    const categorized = {
+      threeMonths: [] as ContentItem[],
+      oneYear: [] as ContentItem[],
+      twoYears: [] as ContentItem[],
+      older: [] as ContentItem[],
+      noDate: [] as ContentItem[]
+    };
+    
+    analysisData.contentItems.forEach(item => {
+      if (!item.publishedAt) {
+        categorized.noDate.push(item);
+        return;
+      }
+      
+      try {
+        const publishDate = new Date(item.publishedAt);
+        
+        if (publishDate > threeMonthsAgo) {
+          categorized.threeMonths.push(item);
+        } else if (publishDate > oneYearAgo) {
+          categorized.oneYear.push(item);
+        } else if (publishDate > twoYearsAgo) {
+          categorized.twoYears.push(item);
+        } else {
+          categorized.older.push(item);
+        }
+      } catch (e) {
+        console.error('날짜 분석 중 오류:', e);
+        categorized.noDate.push(item);
+      }
+    });
+    
+    return categorized;
+  };
+  
+  // 작성일 분석 DonutChart 데이터 계산
+  const getDateAnalysisChartData = () => {
+    const categorized = categorizeDateRanges();
+    
+    return {
+      threeMonths: categorized.threeMonths.length,
+      oneYear: categorized.oneYear.length,
+      twoYears: categorized.twoYears.length,
+      older: categorized.older.length
+    };
+  };
+  
+  // 작성일 카테고리에 따른 색상 설정
+  const getDateCategoryColor = (category: 'threeMonths' | 'oneYear' | 'twoYears' | 'older') => {
+    switch (category) {
+      case 'threeMonths': return { bg: 'bg-blue-100', text: 'text-blue-600', bar: 'bg-blue-500' };
+      case 'oneYear': return { bg: 'bg-green-100', text: 'text-green-600', bar: 'bg-green-500' };
+      case 'twoYears': return { bg: 'bg-yellow-100', text: 'text-yellow-600', bar: 'bg-yellow-500' };
+      case 'older': return { bg: 'bg-red-100', text: 'text-red-600', bar: 'bg-red-500' };
+      default: return { bg: 'bg-gray-100', text: 'text-gray-600', bar: 'bg-gray-500' };
+    }
+  };
+  
+  // 작성일 카테고리 이름 변환
+  const getDateCategoryName = (category: 'threeMonths' | 'oneYear' | 'twoYears' | 'older' | 'noDate') => {
+    switch (category) {
+      case 'threeMonths': return '최근 3개월 이내';
+      case 'oneYear': return '3개월~1년 이내';
+      case 'twoYears': return '1년~2년 이내';
+      case 'older': return '2년 이상 전';
+      case 'noDate': return '날짜 정보 없음';
+      default: return '';
+    }
+  };
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -319,6 +417,19 @@ const KeywordAnalysis = () => {
                   >
                     긍부정평가
                   </button>
+                  {/* 작성일 분석 탭 - 블로그, 유튜브, 뉴스 영역만 표시 */}
+                  {supportsDateAnalysis && (
+                    <button
+                      className={`px-6 py-3 border-b-2 font-medium text-sm sm:text-base transition-colors ${
+                        activeTab === 'dateAnalysis'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                      onClick={() => setActiveTab('dateAnalysis')}
+                    >
+                      작성일 분석
+                    </button>
+                  )}
                   <button
                     className={`px-6 py-3 border-b-2 font-medium text-sm sm:text-base transition-colors ${
                       activeTab === 'adSuggestions'
@@ -546,36 +657,55 @@ const KeywordAnalysis = () => {
                               sentimentLabel = "부정";
                             }
                             
+                            // 작성일 포맷팅
+                            let formattedDate = '';
+                            if (item.publishedAt) {
+                              try {
+                                const date = new Date(item.publishedAt);
+                                // 날짜가 유효한지 확인
+                                if (!isNaN(date.getTime())) {
+                                  formattedDate = date.toLocaleDateString('ko-KR', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  });
+                                }
+                              } catch (e) {
+                                console.error('날짜 포맷 변환 중 오류:', e);
+                              }
+                            }
+                            
                             return (
-                              <div 
-                                key={index} 
-                                className="border border-gray-200 rounded-lg overflow-hidden bg-white hover:shadow-md transition-shadow"
-                              >
-                                <div className="border-l-4 border-l-blue-500 p-4">
-                                  <div className="flex justify-between items-start">
-                                    <div className="flex-1 pr-4">
-                                      <h3 className="text-base font-medium text-gray-800 mb-1 line-clamp-2" 
-                                        dangerouslySetInnerHTML={{__html: item.title}}></h3>
-                                      <p className="text-sm text-gray-600 line-clamp-2" 
-                                        dangerouslySetInnerHTML={{__html: item.description}}></p>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                      <div className={`w-10 h-10 rounded-full ${sentimentColor} flex items-center justify-center text-white font-medium text-xs`}>
-                                        {item.score ? Math.round(item.score * 10) : '-'}
-                                      </div>
-                                      <span className="text-xs mt-1">{sentimentLabel}</span>
+                              <div key={index} className="bg-white rounded-lg border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                <div className="p-4">
+                                  <div className="flex justify-between items-start mb-3">
+                                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-medium hover:underline">
+                                      {item.title}
+                                    </a>
+                                    <div className="flex items-center">
+                                      <span className={`${sentimentColor} text-white px-2 py-1 rounded-md text-xs font-medium`}>
+                                        {sentimentLabel}
+                                      </span>
                                     </div>
                                   </div>
-                                  <div className="mt-2 flex justify-between items-center">
-                                    <a 
-                                      href={item.link} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="text-xs text-blue-600 hover:underline"
-                                    >
-                                      원문 보기
-                                    </a>
-                                    <span className="text-xs text-gray-500">#{index + 1}</span>
+                                  
+                                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
+                                  
+                                  <div className="flex justify-between items-center text-xs text-gray-500">
+                                    {formattedDate && (
+                                      <div className="flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        <span>{formattedDate}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex items-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      <span>감정 점수: {(item.score ? item.score * 10 : 5).toFixed(1)}</span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -587,6 +717,201 @@ const KeywordAnalysis = () => {
                           <p className="mb-1">* 각 컨텐츠의 긍부정 평가는 AI가 컨텐츠 내용을 분석한 결과입니다.</p>
                           <p className="mb-1">* 점수는 1-10 사이로, 높을수록 해당 감정이 강하게 표현된 것입니다.</p>
                           <p>* 중립은 긍정/부정 경향이 명확하지 않거나 균형을 이루는 경우입니다.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'dateAnalysis' && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-6">작성일 기준 분석</h2>
+                    
+                    {!analysisData.contentItems || analysisData.contentItems.length === 0 ? (
+                      <div className="text-center py-10">
+                        <p className="text-gray-500">분석할 콘텐츠 데이터가 없습니다.</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {/* 작성일 분포 요약 */}
+                        <div className="bg-white border border-gray-100 rounded-lg p-6 mb-8 shadow-sm">
+                          <h3 className="font-semibold text-gray-800 mb-4 text-center">작성일 분포</h3>
+                          
+                          {(() => {
+                            const dateData = getDateAnalysisChartData();
+                            const total = dateData.threeMonths + dateData.oneYear + dateData.twoYears + dateData.older;
+                            
+                            // 데이터가 없는 경우
+                            if (total === 0) {
+                              return (
+                                <div className="text-center py-4">
+                                  <p className="text-gray-500">작성일 정보가 있는 콘텐츠가 없습니다.</p>
+                                </div>
+                              );
+                            }
+                            
+                            // 백분율 계산
+                            const threeMonthsPercent = Math.round((dateData.threeMonths / total) * 100);
+                            const oneYearPercent = Math.round((dateData.oneYear / total) * 100);
+                            const twoYearsPercent = Math.round((dateData.twoYears / total) * 100);
+                            const olderPercent = Math.round((dateData.older / total) * 100);
+                            
+                            return (
+                              <div>
+                                {/* 차트 */}
+                                <div className="w-full bg-gray-200 rounded-full h-6 mb-6 overflow-hidden">
+                                  {dateData.threeMonths > 0 && (
+                                    <div 
+                                      className="bg-blue-500 h-6 float-left text-xs font-medium text-blue-100 text-center p-1 leading-none"
+                                      style={{ width: `${threeMonthsPercent}%` }}
+                                    >
+                                      {threeMonthsPercent}%
+                                    </div>
+                                  )}
+                                  {dateData.oneYear > 0 && (
+                                    <div 
+                                      className="bg-green-500 h-6 float-left text-xs font-medium text-green-100 text-center p-1 leading-none"
+                                      style={{ width: `${oneYearPercent}%` }}
+                                    >
+                                      {oneYearPercent}%
+                                    </div>
+                                  )}
+                                  {dateData.twoYears > 0 && (
+                                    <div 
+                                      className="bg-yellow-500 h-6 float-left text-xs font-medium text-yellow-100 text-center p-1 leading-none"
+                                      style={{ width: `${twoYearsPercent}%` }}
+                                    >
+                                      {twoYearsPercent}%
+                                    </div>
+                                  )}
+                                  {dateData.older > 0 && (
+                                    <div 
+                                      className="bg-red-500 h-6 float-left text-xs font-medium text-red-100 text-center p-1 leading-none"
+                                      style={{ width: `${olderPercent}%` }}
+                                    >
+                                      {olderPercent}%
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* 범례 */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+                                  {dateData.threeMonths > 0 && (
+                                    <div className="flex items-center">
+                                      <div className="w-4 h-4 bg-blue-500 rounded-md mr-2"></div>
+                                      <div className="text-sm">
+                                        <div className="font-medium">최근 3개월</div>
+                                        <div className="text-gray-600">{dateData.threeMonths}개 ({threeMonthsPercent}%)</div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {dateData.oneYear > 0 && (
+                                    <div className="flex items-center">
+                                      <div className="w-4 h-4 bg-green-500 rounded-md mr-2"></div>
+                                      <div className="text-sm">
+                                        <div className="font-medium">3개월~1년</div>
+                                        <div className="text-gray-600">{dateData.oneYear}개 ({oneYearPercent}%)</div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {dateData.twoYears > 0 && (
+                                    <div className="flex items-center">
+                                      <div className="w-4 h-4 bg-yellow-500 rounded-md mr-2"></div>
+                                      <div className="text-sm">
+                                        <div className="font-medium">1년~2년</div>
+                                        <div className="text-gray-600">{dateData.twoYears}개 ({twoYearsPercent}%)</div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {dateData.older > 0 && (
+                                    <div className="flex items-center">
+                                      <div className="w-4 h-4 bg-red-500 rounded-md mr-2"></div>
+                                      <div className="text-sm">
+                                        <div className="font-medium">2년 이상 전</div>
+                                        <div className="text-gray-600">{dateData.older}개 ({olderPercent}%)</div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        
+                        {/* 기간별 콘텐츠 리스트 */}
+                        <div className="space-y-6">
+                          {(() => {
+                            const categorized = categorizeDateRanges();
+                            
+                            // 각 카테고리별 콘텐츠 목록 생성
+                            return Object.entries(categorized)
+                              .filter(([_, items]) => items.length > 0)  // 항목이 있는 카테고리만 표시
+                              .map(([category, items]) => {
+                                const categoryKey = category as 'threeMonths' | 'oneYear' | 'twoYears' | 'older' | 'noDate';
+                                const colors = getDateCategoryColor(categoryKey as any);
+                                
+                                return (
+                                  <div key={category} className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
+                                    <div className={`${colors.bg} px-4 py-3 border-b ${colors.text}`}>
+                                      <h3 className="font-semibold">{getDateCategoryName(categoryKey)} ({items.length}개)</h3>
+                                    </div>
+                                    <div className="p-4">
+                                      <div className="space-y-3">
+                                        {items.map((item, index) => {
+                                          // 날짜 포맷팅
+                                          let formattedDate = '';
+                                          if (item.publishedAt) {
+                                            try {
+                                              const date = new Date(item.publishedAt);
+                                              formattedDate = date.toLocaleDateString('ko-KR', {
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                              });
+                                            } catch (e) {
+                                              console.error('날짜 포맷 변환 중 오류:', e);
+                                            }
+                                          }
+                                          
+                                          return (
+                                            <div key={index} className="border-b border-gray-100 pb-3 last:border-b-0 last:pb-0">
+                                              <a
+                                                href={item.link}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="block hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                                              >
+                                                <h4 className="text-indigo-600 font-medium mb-1 line-clamp-2">
+                                                  {item.title}
+                                                </h4>
+                                                {item.description && (
+                                                  <p className="text-sm text-gray-600 line-clamp-2 mb-1">
+                                                    {item.description}
+                                                  </p>
+                                                )}
+                                                {formattedDate && (
+                                                  <div className="flex items-center text-xs text-gray-500 mt-1">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                    <span>{formattedDate}</span>
+                                                  </div>
+                                                )}
+                                              </a>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              });
+                          })()}
+                        </div>
+                        
+                        <div className="mt-6 text-sm text-gray-500">
+                          <p className="mb-1">* 분석된 콘텐츠의 작성일 기준으로 분류한 결과입니다.</p>
+                          <p>* 현재 시점을 기준으로 각 기간별 콘텐츠 분포를 확인할 수 있습니다.</p>
                         </div>
                       </div>
                     )}

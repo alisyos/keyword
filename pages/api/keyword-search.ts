@@ -8,6 +8,7 @@ type SearchResult = {
     url: string;
     description?: string;
     publishedAt?: string;
+    pubDate?: string;
   }>;
 };
 
@@ -53,6 +54,18 @@ async function fetchNaverBlogData(keyword: string): Promise<SearchResult> {
 // 네이버 카페 데이터 가져오기 (Mock)
 async function fetchNaverCafeData(keyword: string): Promise<SearchResult> {
   try {
+    // 현재 날짜를 사용하여 mock 데이터 생성
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(today.getDate() - 7);
+    const twoWeeksAgo = new Date(today);
+    twoWeeksAgo.setDate(today.getDate() - 14);
+    
+    // 다양한 형식으로 날짜 출력 (RFC 2822 형식 포함)
+    const yesterdayRFC = yesterday.toUTCString();
+    
     return {
       summary: `네이버 카페에서 "${keyword}"에 관한 토론과 정보 공유가 활발히 이루어지고 있습니다. 다양한 커뮤니티에서 이용자들은 경험, 질문, 그리고 조언을 교환하고 있으며, 특히 전문 카페에서는 심층적인 정보를 찾아볼 수 있습니다.`,
       links: [
@@ -60,19 +73,25 @@ async function fetchNaverCafeData(keyword: string): Promise<SearchResult> {
           title: `[정보공유] ${keyword}에 관한 최신 정보 모음`,
           url: 'https://cafe.naver.com/example1',
           description: '커뮤니티에서 공유된 최신 정보와 유용한 팁을 한 곳에 모았습니다.',
-          publishedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+          publishedAt: yesterday.toISOString(),
+          // 추가 날짜 형식
+          pubDate: yesterdayRFC
         },
         {
           title: `${keyword} 관련 질문 모음 (FAQ)`,
           url: 'https://cafe.naver.com/example2',
           description: '자주 묻는 질문과 답변을 정리했습니다. 초보자들에게 유용한 정보가 많습니다.',
-          publishedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+          publishedAt: lastWeek.toISOString(),
+          // 추가 날짜 형식
+          pubDate: lastWeek.toUTCString()
         },
         {
           title: `${keyword} 전문가 추천 리스트`,
           url: 'https://cafe.naver.com/example3',
           description: '해당 분야 전문가들이 추천하는 제품과 방법에 대한 정보입니다.',
-          publishedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+          publishedAt: twoWeeksAgo.toISOString(),
+          // 추가 날짜 형식
+          pubDate: twoWeeksAgo.toUTCString()
         },
       ],
     };
@@ -117,6 +136,23 @@ async function fetchYoutubeData(keyword: string): Promise<SearchResult> {
 // 네이버 뉴스 데이터 가져오기 (Mock)
 async function fetchNaverNewsData(keyword: string): Promise<SearchResult> {
   try {
+    // 현재 날짜를 사용하여 mock 데이터 생성
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const threeDaysAgo = new Date(today);
+    threeDaysAgo.setDate(today.getDate() - 3);
+    const fiveDaysAgo = new Date(today);
+    fiveDaysAgo.setDate(today.getDate() - 5);
+    
+    // 네이버 뉴스 API가 사용하는 RFC 2822 형식의 날짜 문자열로 변환
+    const getFormattedDate = (date: Date) => {
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')} +0900`;
+    };
+    
     return {
       summary: `네이버 뉴스에서 "${keyword}"에 관한 최신 보도와 기사를 확인할 수 있습니다. 다양한 언론사들이 이 주제에 대한 소식, 분석, 그리고 전문가 인터뷰를 제공하고 있습니다. 최근 트렌드와 관련된 다양한 관점을 확인할 수 있습니다.`,
       links: [
@@ -124,19 +160,25 @@ async function fetchNaverNewsData(keyword: string): Promise<SearchResult> {
           title: `[속보] ${keyword} 관련 최신 개발 동향`,
           url: 'https://news.naver.com/example1',
           description: '최근 발표된 중요한 정보와 업계 전문가들의 분석을 담고 있습니다.',
-          publishedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+          publishedAt: yesterday.toISOString(),
+          // RFC 2822 형식의 pubDate 추가
+          pubDate: getFormattedDate(yesterday)
         },
         {
           title: `${keyword}가 미치는 영향 심층 분석`,
           url: 'https://news.naver.com/example2',
           description: '다양한 측면에서 미치는 영향을 데이터를 기반으로 분석한 기사입니다.',
-          publishedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+          publishedAt: threeDaysAgo.toISOString(),
+          // RFC 2822 형식의 pubDate 추가
+          pubDate: getFormattedDate(threeDaysAgo)
         },
         {
           title: `전문가 인터뷰: ${keyword}의 미래 전망`,
           url: 'https://news.naver.com/example3',
           description: '해당 분야 최고 전문가들이 전망하는 향후 발전 방향과 주요 변화에 대한 인사이트입니다.',
-          publishedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+          publishedAt: fiveDaysAgo.toISOString(),
+          // RFC 2822 형식의 pubDate 추가
+          pubDate: getFormattedDate(fiveDaysAgo)
         },
       ],
     };

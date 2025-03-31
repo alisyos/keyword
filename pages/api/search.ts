@@ -21,6 +21,7 @@ type SearchResult = {
     url: string;
     description?: string;
     publishedAt?: string;
+    pubDate?: string;
   }>;
 };
 
@@ -39,7 +40,8 @@ interface NaverSearchItem {
   bloggerlink?: string;
   postdate?: string;
   cafename?: string;
-  pubdate?: string;
+  cafeurl?: string;
+  pubDate?: string;
 }
 
 // 네이버 블로그 검색 API 사용
@@ -115,6 +117,13 @@ async function searchNaverCafe(keyword: string): Promise<SearchResult> {
     
     const items: NaverSearchItem[] = response.data.items || [];
     
+    // API 응답의 전체 구조와 첫 번째 항목 로깅 (디버깅용)
+    console.log('네이버 카페 API 응답 구조:', JSON.stringify(Object.keys(response.data), null, 2));
+    if (items.length > 0) {
+      console.log('네이버 카페 API 응답 첫 번째 항목 전체 필드:', JSON.stringify(Object.keys(items[0]), null, 2));
+      console.log('네이버 카페 API 응답 첫 번째 항목:', JSON.stringify(items[0], null, 2));
+    }
+    
     // HTML 태그 제거 함수
     const removeHtmlTags = (text: string) => text.replace(/<[^>]*>/g, '');
     
@@ -133,12 +142,32 @@ async function searchNaverCafe(keyword: string): Promise<SearchResult> {
     // 결과 반환
     return {
       summary,
-      links: items.map(item => ({
-        title: removeHtmlTags(item.title),
-        url: item.link,
-        description: removeHtmlTags(item.description),
-        publishedAt: item.postdate ? `${item.postdate.slice(0, 4)}-${item.postdate.slice(4, 6)}-${item.postdate.slice(6, 8)}` : undefined
-      }))
+      links: items.map(item => {
+        // 날짜 정보 처리 - postdate, pubDate 또는 date 필드 검사
+        let publishedAt = undefined;
+        
+        if (item.postdate && item.postdate.length === 8) {
+          publishedAt = `${item.postdate.slice(0, 4)}-${item.postdate.slice(4, 6)}-${item.postdate.slice(6, 8)}`;
+        } else if (item.pubDate) {
+          publishedAt = new Date(item.pubDate).toISOString();
+        }
+        
+        // 디버깅을 위해 각 항목의 날짜 관련 필드 로깅
+        console.log('카페 항목 날짜 필드:', {
+          title: item.title.substring(0, 20) + '...',
+          postdate: item.postdate,
+          pubDate: item.pubDate,
+          processed: publishedAt
+        });
+        
+        return {
+          title: removeHtmlTags(item.title),
+          url: item.link,
+          description: removeHtmlTags(item.description),
+          publishedAt,
+          pubDate: item.pubDate || (item.postdate ? `${item.postdate.slice(0, 4)}-${item.postdate.slice(4, 6)}-${item.postdate.slice(6, 8)}` : undefined)
+        };
+      })
     };
   } catch (error) {
     console.error('네이버 카페 API 오류:', error);
@@ -221,6 +250,11 @@ async function searchNaverNews(keyword: string): Promise<SearchResult> {
     
     const items: NaverSearchItem[] = response.data.items || [];
     
+    // API 응답의 첫 번째 항목 로깅 (디버깅용)
+    if (items.length > 0) {
+      console.log('네이버 뉴스 API 응답 첫 번째 항목:', JSON.stringify(items[0], null, 2));
+    }
+    
     // HTML 태그 제거 함수
     const removeHtmlTags = (text: string) => text.replace(/<[^>]*>/g, '');
     
@@ -239,12 +273,26 @@ async function searchNaverNews(keyword: string): Promise<SearchResult> {
     // 결과 반환
     return {
       summary,
-      links: items.map(item => ({
-        title: removeHtmlTags(item.title),
-        url: item.link,
-        description: removeHtmlTags(item.description),
-        publishedAt: item.pubdate ? new Date(item.pubdate).toISOString() : undefined
-      }))
+      links: items.map(item => {
+        // 날짜 정보 처리 - pubDate 필드 처리
+        let publishedAt = undefined;
+        if (item.pubDate) {
+          try {
+            // RFC 2822 형식의 날짜 문자열 처리 (예: "Sun, 30 Mar 2025 10:45:00 +0900")
+            publishedAt = new Date(item.pubDate).toISOString();
+          } catch (e) {
+            console.error('뉴스 날짜 변환 오류:', e);
+          }
+        }
+        
+        return {
+          title: removeHtmlTags(item.title),
+          url: item.link,
+          description: removeHtmlTags(item.description),
+          publishedAt,
+          pubDate: item.pubDate
+        };
+      })
     };
   } catch (error) {
     console.error('네이버 뉴스 API 오류:', error);

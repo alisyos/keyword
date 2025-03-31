@@ -34,6 +34,7 @@ interface ContentItem {
   description: string;
   sentiment?: 'positive' | 'negative' | 'neutral';
   score?: number;
+  publishedAt?: string;
 }
 
 interface AdSuggestion {
@@ -517,34 +518,89 @@ ${textsToAnalyze.map((text, idx) => `[${idx}] ${text}`).join('\n\n')}`
       return itemsToAnalyze.map((item, index) => {
         const result = sentimentResults.find((r: any) => r.index === index);
         
+        // 작성일 정보 처리
+        let publishedAt = undefined;
+        
+        // 유튜브 결과는 publishedAt 필드가 있음
+        if (item.publishedAt) {
+          publishedAt = item.publishedAt;
+        } 
+        // 네이버 API 결과에서는 postdate 필드 확인
+        else if (item.postdate) {
+          // postdate를 YYYY-MM-DD 형식으로 변환 (네이버 API는 YYYYMMDD 형식)
+          const postdate = item.postdate;
+          if (postdate && postdate.length === 8) {
+            publishedAt = `${postdate.slice(0, 4)}-${postdate.slice(4, 6)}-${postdate.slice(6, 8)}`;
+          }
+        }
+        
         return {
           title: item.title,
           link: item.link,
           description: item.description,
           sentiment: result ? result.sentiment : 'neutral',
-          score: result ? result.score : 0.5
+          score: result ? result.score : 0.5,
+          publishedAt: publishedAt
         };
       });
     } catch (error) {
       console.error('개별 컨텐츠 감정 분석 결과 파싱 오류:', error);
       // 오류 발생 시 기본값 반환
-      return itemsToAnalyze.map(item => ({
-        title: item.title,
-        link: item.link,
-        description: item.description,
-        sentiment: 'neutral',
-        score: 0.5
-      }));
+      return itemsToAnalyze.map(item => {
+        // 작성일 정보 처리
+        let publishedAt = undefined;
+        
+        // 유튜브 결과는 publishedAt 필드가 있음
+        if (item.publishedAt) {
+          publishedAt = item.publishedAt;
+        } 
+        // 네이버 API 결과에서는 postdate 필드 확인
+        else if (item.postdate) {
+          // postdate를 YYYY-MM-DD 형식으로 변환 (네이버 API는 YYYYMMDD 형식)
+          const postdate = item.postdate;
+          if (postdate && postdate.length === 8) {
+            publishedAt = `${postdate.slice(0, 4)}-${postdate.slice(4, 6)}-${postdate.slice(6, 8)}`;
+          }
+        }
+        
+        return {
+          title: item.title,
+          link: item.link,
+          description: item.description,
+          sentiment: 'neutral',
+          score: 0.5,
+          publishedAt: publishedAt
+        };
+      });
     }
   } catch (error) {
     console.error('개별 컨텐츠 감정 분석 오류:', error);
     // 오류 발생 시 기본값 반환
-    return items.slice(0, 30).map(item => ({
-      title: item.title,
-      link: item.link,
-      description: item.description,
-      sentiment: 'neutral',
-      score: 0.5
-    }));
+    return items.slice(0, 30).map(item => {
+      // 작성일 정보 처리
+      let publishedAt = undefined;
+      
+      // 유튜브 결과는 publishedAt 필드가 있음
+      if (item.publishedAt) {
+        publishedAt = item.publishedAt;
+      } 
+      // 네이버 API 결과에서는 postdate 필드 확인
+      else if (item.postdate) {
+        // postdate를 YYYY-MM-DD 형식으로 변환 (네이버 API는 YYYYMMDD 형식)
+        const postdate = item.postdate;
+        if (postdate && postdate.length === 8) {
+          publishedAt = `${postdate.slice(0, 4)}-${postdate.slice(4, 6)}-${postdate.slice(6, 8)}`;
+        }
+      }
+      
+      return {
+        title: item.title,
+        link: item.link,
+        description: item.description,
+        sentiment: 'neutral',
+        score: 0.5,
+        publishedAt: publishedAt
+      };
+    });
   }
 } 
