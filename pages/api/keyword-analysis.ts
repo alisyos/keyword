@@ -514,6 +514,9 @@ ${textsToAnalyze.map((text, idx) => `[${idx}] ${text}`).join('\n\n')}`
       const jsonStr = jsonMatch ? jsonMatch[0] : '';
       const sentimentResults = JSON.parse(jsonStr);
       
+      // 디버깅용 로그 추가
+      console.log("분석할 컨텐츠 첫 번째 항목 샘플:", itemsToAnalyze[0]);
+      
       // 원본 아이템에 감정 분석 결과 추가
       return itemsToAnalyze.map((item, index) => {
         const result = sentimentResults.find((r: any) => r.index === index);
@@ -521,11 +524,31 @@ ${textsToAnalyze.map((text, idx) => `[${idx}] ${text}`).join('\n\n')}`
         // 작성일 정보 처리
         let publishedAt = undefined;
         
+        // 디버깅: 날짜 관련 필드 확인
+        console.log(`아이템 ${index} 날짜 필드:`, {
+          title: item.title.substring(0, 20) + '...',
+          publishedAt: item.publishedAt,
+          pubDate: item.pubDate,
+          postdate: item.postdate
+        });
+        
         // 유튜브 결과는 publishedAt 필드가 있음
         if (item.publishedAt) {
           publishedAt = item.publishedAt;
         } 
-        // 네이버 API 결과에서는 postdate 필드 확인
+        // 네이버 뉴스 결과는 pubDate 필드 확인
+        else if (item.pubDate) {
+          try {
+            const date = new Date(item.pubDate);
+            if (!isNaN(date.getTime())) {
+              publishedAt = date.toISOString();
+              console.log("뉴스 pubDate 변환 성공:", item.pubDate, "->", publishedAt);
+            }
+          } catch (e) {
+            console.error("뉴스 pubDate 변환 실패:", e);
+          }
+        }
+        // 네이버 API 결과에서는 postdate 필드 확인 (블로그, 카페)
         else if (item.postdate) {
           // postdate를 YYYY-MM-DD 형식으로 변환 (네이버 API는 YYYYMMDD 형식)
           const postdate = item.postdate;
@@ -554,7 +577,18 @@ ${textsToAnalyze.map((text, idx) => `[${idx}] ${text}`).join('\n\n')}`
         if (item.publishedAt) {
           publishedAt = item.publishedAt;
         } 
-        // 네이버 API 결과에서는 postdate 필드 확인
+        // 네이버 뉴스 결과는 pubDate 필드 확인
+        else if (item.pubDate) {
+          try {
+            const date = new Date(item.pubDate);
+            if (!isNaN(date.getTime())) {
+              publishedAt = date.toISOString();
+            }
+          } catch (e) {
+            console.error("뉴스 pubDate 변환 실패:", e);
+          }
+        }
+        // 네이버 API 결과에서는 postdate 필드 확인 (블로그, 카페)
         else if (item.postdate) {
           // postdate를 YYYY-MM-DD 형식으로 변환 (네이버 API는 YYYYMMDD 형식)
           const postdate = item.postdate;
@@ -584,7 +618,18 @@ ${textsToAnalyze.map((text, idx) => `[${idx}] ${text}`).join('\n\n')}`
       if (item.publishedAt) {
         publishedAt = item.publishedAt;
       } 
-      // 네이버 API 결과에서는 postdate 필드 확인
+      // 네이버 뉴스 결과는 pubDate 필드 확인
+      else if (item.pubDate) {
+        try {
+          const date = new Date(item.pubDate);
+          if (!isNaN(date.getTime())) {
+            publishedAt = date.toISOString();
+          }
+        } catch (e) {
+          console.error("뉴스 pubDate 변환 실패:", e);
+        }
+      }
+      // 네이버 API 결과에서는 postdate 필드 확인 (블로그, 카페)
       else if (item.postdate) {
         // postdate를 YYYY-MM-DD 형식으로 변환 (네이버 API는 YYYYMMDD 형식)
         const postdate = item.postdate;

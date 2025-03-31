@@ -279,11 +279,25 @@ async function searchNaverNews(keyword: string): Promise<SearchResult> {
         if (item.pubDate) {
           try {
             // RFC 2822 형식의 날짜 문자열 처리 (예: "Sun, 30 Mar 2025 10:45:00 +0900")
-            publishedAt = new Date(item.pubDate).toISOString();
+            const date = new Date(item.pubDate);
+            // 유효한 날짜인지 확인
+            if (!isNaN(date.getTime())) {
+              publishedAt = date.toISOString();
+              console.log('뉴스 날짜 변환 성공:', item.pubDate, '->', publishedAt);
+            } else {
+              console.error('뉴스 날짜가 유효하지 않음:', item.pubDate);
+            }
           } catch (e) {
-            console.error('뉴스 날짜 변환 오류:', e);
+            console.error('뉴스 날짜 변환 오류:', e, item.pubDate);
           }
         }
+        
+        // 디버깅을 위해 각 항목의 날짜 관련 필드 로깅
+        console.log('뉴스 항목 날짜 필드:', {
+          title: item.title.substring(0, 20) + '...',
+          pubDate: item.pubDate,
+          processed: publishedAt
+        });
         
         return {
           title: removeHtmlTags(item.title),
