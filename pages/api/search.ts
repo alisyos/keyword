@@ -20,6 +20,7 @@ type SearchResult = {
     title: string;
     url: string;
     description?: string;
+    publishedAt?: string;
   }>;
 };
 
@@ -38,6 +39,7 @@ interface NaverSearchItem {
   bloggerlink?: string;
   postdate?: string;
   cafename?: string;
+  pubdate?: string;
 }
 
 // 네이버 블로그 검색 API 사용
@@ -82,7 +84,8 @@ async function searchNaverBlog(keyword: string): Promise<SearchResult> {
       links: items.map(item => ({
         title: removeHtmlTags(item.title),
         url: item.link,
-        description: removeHtmlTags(item.description)
+        description: removeHtmlTags(item.description),
+        publishedAt: item.postdate ? `${item.postdate.slice(0, 4)}-${item.postdate.slice(4, 6)}-${item.postdate.slice(6, 8)}` : undefined
       }))
     };
   } catch (error) {
@@ -133,7 +136,8 @@ async function searchNaverCafe(keyword: string): Promise<SearchResult> {
       links: items.map(item => ({
         title: removeHtmlTags(item.title),
         url: item.link,
-        description: removeHtmlTags(item.description)
+        description: removeHtmlTags(item.description),
+        publishedAt: item.postdate ? `${item.postdate.slice(0, 4)}-${item.postdate.slice(4, 6)}-${item.postdate.slice(6, 8)}` : undefined
       }))
     };
   } catch (error) {
@@ -183,7 +187,12 @@ async function searchYoutube(keyword: string): Promise<SearchResult> {
     // 결과 반환
     return {
       summary,
-      links: videos
+      links: videos.map(video => ({
+        title: video.title,
+        url: video.url,
+        description: video.description,
+        publishedAt: video.publishedAt
+      }))
     };
   } catch (error) {
     console.error('유튜브 API 오류:', error);
@@ -233,7 +242,8 @@ async function searchNaverNews(keyword: string): Promise<SearchResult> {
       links: items.map(item => ({
         title: removeHtmlTags(item.title),
         url: item.link,
-        description: removeHtmlTags(item.description)
+        description: removeHtmlTags(item.description),
+        publishedAt: item.pubdate ? new Date(item.pubdate).toISOString() : undefined
       }))
     };
   } catch (error) {
@@ -314,4 +324,4 @@ export default async function handler(
     res.setHeader('Allow', ['POST']);
     res.status(405).json({ message: `Method ${req.method} Not Allowed` });
   }
-} 
+}

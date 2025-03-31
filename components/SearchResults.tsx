@@ -6,6 +6,7 @@ interface ResultData {
     title: string;
     url: string;
     description?: string;
+    publishedAt?: string;
   }>;
 }
 
@@ -148,24 +149,52 @@ const ResultSection = ({
         <div>
           <h3 className="text-lg font-semibold text-gray-800 mb-3">관련 콘텐츠</h3>
           <div className="space-y-4">
-            {data.links.map((link, index) => (
-              <a
-                key={index}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all"
-              >
-                <h4 className="text-indigo-600 font-medium mb-2 line-clamp-2">
-                  {link.title}
-                </h4>
-                {link.description && (
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {link.description}
-                  </p>
-                )}
-              </a>
-            ))}
+            {data.links.map((link, index) => {
+              // 작성일 포맷팅
+              let formattedDate = '';
+              if (link.publishedAt) {
+                try {
+                  const date = new Date(link.publishedAt);
+                  // 날짜가 유효한지 확인
+                  if (!isNaN(date.getTime())) {
+                    formattedDate = date.toLocaleDateString('ko-KR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    });
+                  }
+                } catch (e) {
+                  console.error('날짜 포맷 변환 중 오류:', e);
+                }
+              }
+
+              return (
+                <a
+                  key={index}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all"
+                >
+                  <h4 className="text-indigo-600 font-medium mb-2 line-clamp-2">
+                    {link.title}
+                  </h4>
+                  {link.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                      {link.description}
+                    </p>
+                  )}
+                  {formattedDate && (
+                    <div className="flex items-center text-xs text-gray-500 mt-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>{formattedDate}</span>
+                    </div>
+                  )}
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>
