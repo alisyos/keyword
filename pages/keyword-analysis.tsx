@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import axios from 'axios';
@@ -188,6 +188,10 @@ const KeywordAnalysis = () => {
   const [activeTab, setActiveTab] = useState<'keywords' | 'sentiment' | 'contentSentiment' | 'adSuggestions' | 'dateAnalysis'>('keywords');
   const [generating, setGenerating] = useState<boolean>(false);
   const [productDescription, setProductDescription] = useState<string>('');
+  const [downloading, setDownloading] = useState<boolean>(false);
+  
+  // 다운로드 시 사용할 ref
+  const analysisRef = useRef<HTMLDivElement>(null);
   
   // 해당 콘텐츠 타입이 작성일 분석을 지원하는지 확인
   const supportsDateAnalysis = type === 'blog' || type === 'youtube' || type === 'news';
@@ -344,23 +348,606 @@ const KeywordAnalysis = () => {
     }
   };
   
+  // HTML 파일로 다운로드하는 함수
+  const downloadAsHtml = () => {
+    setDownloading(true);
+    
+    try {
+      // 현재 날짜 생성
+      const now = new Date();
+      const dateString = now.toISOString().split('T')[0];
+      
+      // HTML 문서 시작
+      let htmlContent = `
+      <!DOCTYPE html>
+      <html lang="ko">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${keyword} - 키워드 분석 결과 (${dateString})</title>
+        <style>
+          body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          h1, h2, h3 { margin-top: 1.5em; }
+          h1 { font-size: 1.8em; color: #2563eb; }
+          h2 { font-size: 1.5em; color: #4b5563; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+          h3 { font-size: 1.3em; color: #1f2937; }
+          .section { margin-bottom: 2em; background: #fff; padding: 1.5em; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+          .chart { margin: 1em 0; }
+          table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+          table, th, td { border: 1px solid #e5e7eb; }
+          th, td { padding: 8px 12px; text-align: left; }
+          th { background-color: #f9fafb; }
+          .item { margin-bottom: 1em; padding-bottom: 1em; border-bottom: 1px solid #f3f4f6; }
+          .item:last-child { border-bottom: none; }
+          .bar { height: 12px; background: #3b82f6; border-radius: 6px; margin-top: 4px; }
+          .sentiment-positive { color: #10b981; }
+          .sentiment-negative { color: #ef4444; }
+          .sentiment-neutral { color: #6b7280; }
+          .keyword-score { display: flex; justify-content: space-between; align-items: center; }
+          .keyword-bar { flex-grow: 1; margin: 0 10px; height: 8px; background: #e5e7eb; border-radius: 4px; }
+          .keyword-bar-inner { height: 100%; border-radius: 4px; }
+          .positive { background: #10b981; }
+          .negative { background: #ef4444; }
+          .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #6b7280; }
+        </style>
+      </head>
+      <body>
+        <header>
+          <h1>${keyword} - 키워드 분석 결과</h1>
+          <p>분석 일시: ${now.toLocaleString('ko-KR')}</p>
+          <p>콘텐츠 유형: ${
+            type === 'blog' ? '네이버 블로그' :
+            type === 'cafe' ? '네이버 카페' :
+            type === 'youtube' ? '유튜브' :
+            type === 'news' ? '네이버 뉴스' : '기타'
+          }</p>
+        </header>
+      `;
+      
+      // 키워드 빈도 분석 섹션
+      if (analysisData.keywords && analysisData.keywords.length > 0) {
+        htmlContent += `
+        <div class="section">
+          <h2>1. 키워드 빈도 분석</h2>
+          <p>분석된 콘텐츠에서 가장 많이 언급된 키워드와 빈도입니다.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>순위</th>
+                <th>키워드</th>
+                <th>빈도수</th>
+                <th>비율</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        analysisData.keywords.slice(0, 10).forEach((item, index) => {
+          const percent = Math.round((item.frequency / analysisData.keywords[0].frequency) * 100);
+          htmlContent += `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${item.keyword}</td>
+              <td>${item.frequency}회</td>
+              <td>
+                <div class="keyword-bar">
+                  <div class="keyword-bar-inner" style="width: ${percent}%; background-color: #3b82f6;"></div>
+                </div>
+                ${percent}%
+              </td>
+            </tr>
+          `;
+        });
+        
+        htmlContent += `
+            </tbody>
+          </table>
+        </div>
+        `;
+      }
+      
+      // 감정 분석 섹션
+      if (analysisData.sentiment) {
+        const { positive, negative, neutral, positiveKeywords, negativeKeywords } = analysisData.sentiment;
+        const total = positive + negative + neutral;
+        const positivePercent = Math.round((positive / total) * 100) || 0;
+        const negativePercent = Math.round((negative / total) * 100) || 0;
+        const neutralPercent = Math.round((neutral / total) * 100) || 0;
+        
+        htmlContent += `
+        <div class="section">
+          <h2>2. 감정 분석 결과</h2>
+          <p>분석된 콘텐츠의 전체적인 감정 분석 결과입니다.</p>
+          
+          <div style="display: flex; justify-content: space-around; margin: 2em 0;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.5em; font-weight: bold; color: #10b981;">${positivePercent}%</div>
+              <div>긍정적</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.5em; font-weight: bold; color: #6b7280;">${neutralPercent}%</div>
+              <div>중립적</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.5em; font-weight: bold; color: #ef4444;">${negativePercent}%</div>
+              <div>부정적</div>
+            </div>
+          </div>
+          
+          <div style="display: flex; margin-top: 2em;">
+            <div style="width: 50%; padding-right: 1em;">
+              <h3>긍정적 키워드</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>키워드</th>
+                    <th>점수</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        if (positiveKeywords.length === 0) {
+          htmlContent += `
+            <tr>
+              <td colspan="2" style="text-align: center;">긍정 키워드가 발견되지 않았습니다.</td>
+            </tr>
+          `;
+        } else {
+          positiveKeywords.forEach(item => {
+            htmlContent += `
+              <tr>
+                <td>${item.keyword}</td>
+                <td>
+                  <div class="keyword-bar">
+                    <div class="keyword-bar-inner positive" style="width: ${(item.score / 10) * 100}%;"></div>
+                  </div>
+                  ${item.score}
+                </td>
+              </tr>
+            `;
+          });
+        }
+        
+        htmlContent += `
+                </tbody>
+              </table>
+            </div>
+            <div style="width: 50%; padding-left: 1em;">
+              <h3>부정적 키워드</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>키워드</th>
+                    <th>점수</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        if (negativeKeywords.length === 0) {
+          htmlContent += `
+            <tr>
+              <td colspan="2" style="text-align: center;">부정 키워드가 발견되지 않았습니다.</td>
+            </tr>
+          `;
+        } else {
+          negativeKeywords.forEach(item => {
+            htmlContent += `
+              <tr>
+                <td>${item.keyword}</td>
+                <td>
+                  <div class="keyword-bar">
+                    <div class="keyword-bar-inner negative" style="width: ${(item.score / 10) * 100}%;"></div>
+                  </div>
+                  ${item.score}
+                </td>
+              </tr>
+            `;
+          });
+        }
+        
+        htmlContent += `
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        `;
+      }
+      
+      // 긍부정 평가 섹션
+      if (analysisData.contentItems && analysisData.contentItems.length > 0) {
+        // 긍정, 부정, 중립 개수 계산
+        const positive = analysisData.contentItems.filter(item => item.sentiment === 'positive').length;
+        const negative = analysisData.contentItems.filter(item => item.sentiment === 'negative').length;
+        const neutral = analysisData.contentItems.filter(item => item.sentiment === 'neutral').length;
+        
+        // 백분율 계산
+        const total = analysisData.contentItems.length;
+        const positivePercent = Math.round((positive / total) * 100);
+        const negativePercent = Math.round((negative / total) * 100);
+        const neutralPercent = 100 - positivePercent - negativePercent;
+        
+        htmlContent += `
+        <div class="section">
+          <h2>3. 긍부정 평가</h2>
+          <p>개별 콘텐츠 항목의 긍부정 평가 결과입니다.</p>
+          
+          <div style="display: flex; justify-content: space-around; margin: 2em 0;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.5em; font-weight: bold; color: #10b981;">${positive}</div>
+              <div>긍정 콘텐츠</div>
+              <div>${positivePercent}%</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.5em; font-weight: bold; color: #6b7280;">${neutral}</div>
+              <div>중립 콘텐츠</div>
+              <div>${neutralPercent}%</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.5em; font-weight: bold; color: #ef4444;">${negative}</div>
+              <div>부정 콘텐츠</div>
+              <div>${negativePercent}%</div>
+            </div>
+          </div>
+          
+          <h3>콘텐츠 목록</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>제목</th>
+                <th>감정</th>
+                <th>점수</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        analysisData.contentItems.forEach((item, index) => {
+          // 감정 색상 및 라벨 결정
+          let sentimentColor = "sentiment-neutral";
+          let sentimentLabel = "중립";
+          
+          if (item.sentiment === "positive") {
+            sentimentColor = "sentiment-positive";
+            sentimentLabel = "긍정";
+          } else if (item.sentiment === "negative") {
+            sentimentColor = "sentiment-negative";
+            sentimentLabel = "부정";
+          }
+          
+          htmlContent += `
+            <tr>
+              <td>
+                <a href="${item.link}" target="_blank">${item.title}</a>
+              </td>
+              <td>
+                <span class="${sentimentColor}">${sentimentLabel}</span>
+              </td>
+              <td>${item.score ? item.score.toFixed(2) : 'N/A'}</td>
+            </tr>
+          `;
+        });
+        
+        htmlContent += `
+            </tbody>
+          </table>
+        </div>
+        `;
+      }
+      
+      // 작성일 분석 섹션
+      if (supportsDateAnalysis && analysisData.contentItems && analysisData.contentItems.length > 0) {
+        // 작성일 범주별 데이터 생성
+        const now = new Date();
+        const threeMonthsAgo = new Date(now);
+        threeMonthsAgo.setMonth(now.getMonth() - 3);
+        
+        const oneYearAgo = new Date(now);
+        oneYearAgo.setFullYear(now.getFullYear() - 1);
+        
+        const twoYearsAgo = new Date(now);
+        twoYearsAgo.setFullYear(now.getFullYear() - 2);
+        
+        // 각 카테고리에 속하는 항목 수 계산
+        const dateData = {
+          threeMonths: 0, // 최근 3개월
+          oneYear: 0,     // 3개월-1년
+          twoYears: 0,    // 1년-2년
+          older: 0,       // 2년 이상
+          noDate: 0       // 날짜 정보 없음
+        };
+        
+        // 콘텐츠 아이템 분류
+        analysisData.contentItems.forEach(item => {
+          if (!item.publishedAt) {
+            dateData.noDate++;
+            return;
+          }
+          
+          try {
+            const publishDate = new Date(item.publishedAt);
+            
+            if (publishDate >= threeMonthsAgo) {
+              dateData.threeMonths++;
+            } else if (publishDate >= oneYearAgo) {
+              dateData.oneYear++;
+            } else if (publishDate >= twoYearsAgo) {
+              dateData.twoYears++;
+            } else {
+              dateData.older++;
+            }
+          } catch (e) {
+            console.error('날짜 변환 오류:', e);
+            dateData.noDate++;
+          }
+        });
+        
+        // 전체 항목 수 (날짜 정보가 있는 항목만)
+        const totalWithDate = dateData.threeMonths + dateData.oneYear + dateData.twoYears + dateData.older;
+        
+        // 백분율 계산 (날짜 정보가 있는 항목이 없는 경우 0으로 표시)
+        const threeMonthsPercent = totalWithDate > 0 ? Math.round((dateData.threeMonths / totalWithDate) * 100) : 0;
+        const oneYearPercent = totalWithDate > 0 ? Math.round((dateData.oneYear / totalWithDate) * 100) : 0;
+        const twoYearsPercent = totalWithDate > 0 ? Math.round((dateData.twoYears / totalWithDate) * 100) : 0;
+        const olderPercent = totalWithDate > 0 ? Math.round((dateData.older / totalWithDate) * 100) : 0;
+        
+        htmlContent += `
+        <div class="section">
+          <h2>4. 작성일 분석</h2>
+          <p>콘텐츠 작성 시기별 분포입니다.</p>
+        `;
+        
+        if (totalWithDate === 0) {
+          htmlContent += `
+          <div style="text-align: center; padding: 2em; color: #6b7280;">
+            <p>날짜 정보가 있는 콘텐츠가 없습니다.</p>
+          </div>
+          `;
+        } else {
+          htmlContent += `
+          <div style="margin: 2em 0;">
+            <table>
+              <thead>
+                <tr>
+                  <th>기간</th>
+                  <th>콘텐츠 수</th>
+                  <th>비율</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>최근 3개월</td>
+                  <td>${dateData.threeMonths}개</td>
+                  <td>${threeMonthsPercent}%</td>
+                </tr>
+                <tr>
+                  <td>3개월~1년</td>
+                  <td>${dateData.oneYear}개</td>
+                  <td>${oneYearPercent}%</td>
+                </tr>
+                <tr>
+                  <td>1년~2년</td>
+                  <td>${dateData.twoYears}개</td>
+                  <td>${twoYearsPercent}%</td>
+                </tr>
+                <tr>
+                  <td>2년 이상 전</td>
+                  <td>${dateData.older}개</td>
+                  <td>${olderPercent}%</td>
+                </tr>
+                <tr>
+                  <td>날짜 정보 없음</td>
+                  <td>${dateData.noDate}개</td>
+                  <td>-</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          `;
+          
+          // 기간별 콘텐츠 목록 추가
+          [
+            { key: 'threeMonths', name: '최근 3개월' },
+            { key: 'oneYear', name: '3개월~1년' },
+            { key: 'twoYears', name: '1년~2년' },
+            { key: 'older', name: '2년 이상 전' }
+          ].forEach(category => {
+            // 해당 카테고리에 속하는 콘텐츠 필터링
+            const items = analysisData.contentItems?.filter(item => {
+              if (!item.publishedAt) return false;
+              
+              try {
+                const publishDate = new Date(item.publishedAt);
+                
+                if (category.key === 'threeMonths') {
+                  return publishDate >= threeMonthsAgo;
+                } else if (category.key === 'oneYear') {
+                  return publishDate >= oneYearAgo && publishDate < threeMonthsAgo;
+                } else if (category.key === 'twoYears') {
+                  return publishDate >= twoYearsAgo && publishDate < oneYearAgo;
+                } else {
+                  return publishDate < twoYearsAgo;
+                }
+              } catch (e) {
+                return false;
+              }
+            });
+            
+            if (items && items.length > 0) {
+              htmlContent += `
+              <h3>${category.name} (${items.length}개)</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>제목</th>
+                    <th>작성일</th>
+                  </tr>
+                </thead>
+                <tbody>
+              `;
+              
+              items.forEach(item => {
+                // 날짜 포맷팅
+                let formattedDate = '';
+                if (item.publishedAt) {
+                  try {
+                    const date = new Date(item.publishedAt);
+                    formattedDate = date.toLocaleDateString('ko-KR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    });
+                  } catch (e) {
+                    console.error('날짜 포맷 변환 중 오류:', e);
+                  }
+                }
+                
+                htmlContent += `
+                  <tr>
+                    <td>
+                      <a href="${item.link}" target="_blank">${item.title}</a>
+                    </td>
+                    <td>${formattedDate}</td>
+                  </tr>
+                `;
+              });
+              
+              htmlContent += `
+                </tbody>
+              </table>
+              `;
+            }
+          });
+        }
+        
+        htmlContent += `
+        </div>
+        `;
+      }
+      
+      // 광고 제안 섹션
+      if (analysisData.adSuggestions && analysisData.adSuggestions.length > 0) {
+        htmlContent += `
+        <div class="section">
+          <h2>5. 광고 제안</h2>
+          <p>분석 결과를 바탕으로 생성된 광고 제안입니다.</p>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>광고 제목</th>
+                <th>광고 설명</th>
+                <th>타겟 고객층</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        analysisData.adSuggestions.forEach((ad, index) => {
+          htmlContent += `
+            <tr>
+              <td>${ad.headline}</td>
+              <td>${ad.description}</td>
+              <td>${ad.target}</td>
+            </tr>
+          `;
+        });
+        
+        htmlContent += `
+            </tbody>
+          </table>
+        </div>
+        `;
+      }
+      
+      // HTML 문서 종료
+      htmlContent += `
+        <div class="footer">
+          <p>이 분석 결과는 ${now.toLocaleString('ko-KR')}에 생성되었습니다.</p>
+        </div>
+      </body>
+      </html>
+      `;
+      
+      // HTML 파일 다운로드
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${keyword}_분석결과_${dateString}.html`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // 정리
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('분석 결과 다운로드 중 오류:', error);
+      alert('분석 결과 다운로드 중 오류가 발생했습니다.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <Head>
         <title>"{keyword}" 키워드 분석 | 키워드 인사이트</title>
-        <meta name="description" content={`${keyword} 키워드에 대한 상세 분석 결과`} />
+        <meta name="description" content={`${keyword} 키워드에 대한 ${getContentTypeTitle()} 데이터 분석 결과`} />
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       </Head>
       
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
         <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-5">
-            <h1 className="text-2xl sm:text-3xl font-bold">
-              "{keyword}"
-            </h1>
-            <p className="mt-1 opacity-90">
-              {getContentTypeTitle()} 키워드 상세 분석
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold">
+                  "{keyword}"
+                </h1>
+                <p className="mt-1 opacity-90">
+                  {getContentTypeTitle()} 데이터 기반 인사이트
+                </p>
+              </div>
+              
+              {/* 분석 결과 다운로드 버튼 추가 */}
+              {!loading && !error && (
+                <div className="mt-4 sm:mt-0">
+                  <button
+                    onClick={downloadAsHtml}
+                    disabled={downloading}
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium transition-all
+                      ${downloading ? 'bg-white bg-opacity-20 cursor-not-allowed' : 'bg-white bg-opacity-20 hover:bg-opacity-30'}`}
+                  >
+                    {downloading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        다운로드 중...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                        분석 결과 다운로드
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           
           {loading ? (
