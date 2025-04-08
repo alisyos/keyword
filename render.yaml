@@ -1,20 +1,18 @@
 services:
   - type: web
-    name: keyword-summarizer
+    name: keyword-expansion
     env: node
-    plan: free
-    buildCommand: |
-      npm init -y
-      npm install typescript@5.2.2 @types/react@18.2.33 @types/react-dom@18.2.14 @types/node@20.8.10 --save
-      npm install
-      npm run build
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: OPENAI_API_KEY
         sync: false
-      - key: NAVER_CLIENT_ID
+      - key: NAVER_API_KEY
         sync: false
-      - key: NAVER_CLIENT_SECRET
-        sync: false 
+      - key: NAVER_API_SECRET
+        sync: false
+      - key: NAVER_CUSTOMER_ID
+        sync: false
+    autoDeploy: true 
