@@ -21,21 +21,24 @@ const Navbar = () => {
 
   // 페이지 경로에 따라 활성화된 링크 스타일 지정
   const getLinkClass = (path: string) => {
-    const baseClass = "px-3 py-2 rounded-md text-sm font-medium transition-colors";
-    const activeClass = "text-white bg-blue-700 hover:bg-blue-800";
-    const inactiveClass = "text-gray-700 hover:text-white hover:bg-blue-600";
-    
-    return `${baseClass} ${router.pathname === path ? activeClass : inactiveClass}`;
+    const baseClasses = "px-4 py-2 rounded-lg transition-all duration-300 font-medium";
+    return router.pathname === path
+      ? `${baseClasses} bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md hover:shadow-lg`
+      : `${baseClasses} text-gray-600 hover:bg-blue-50`;
   };
   
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-md' : 'bg-white/80 backdrop-blur-md'}`}>
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      isScrolled 
+        ? 'bg-white shadow-lg' 
+        : 'bg-gradient-to-b from-blue-50 to-white/80 backdrop-blur-md'
+    }`}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* 로고 및 브랜드 */}
           <div className="flex-shrink-0">
             <Link href="/" className="flex items-center">
-              <span className="font-bold text-xl text-blue-600">GPTKOREA</span>
+              <span className="font-bold text-2xl bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">GPTKOREA</span>
               <span className="ml-2 text-gray-600 font-medium">키워드 분석</span>
             </Link>
           </div>
