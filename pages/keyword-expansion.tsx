@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
 import axios from 'axios';
+import { marked } from 'marked';
 
 interface KeywordData {
   relKeyword: string;
@@ -29,9 +30,13 @@ interface SortConfig {
 export default function KeywordExpansion() {
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchResult | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: '', direction: null });
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysis, setAnalysis] = useState('');
+  const [userQuery, setUserQuery] = useState('');
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,6 +150,39 @@ export default function KeywordExpansion() {
     );
   };
 
+  const handleAnalyze = async () => {
+    if (!userQuery.trim()) {
+      alert('분석을 위한 질문을 입력해주세요.');
+      return;
+    }
+
+    setAnalyzing(true);
+    try {
+      const response = await fetch('/api/analyze-keywords', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          keywordData: getSortedKeywordList(),
+          userQuery: userQuery,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('분석 중 오류가 발생했습니다.');
+      }
+
+      const data = await response.json();
+      setAnalysis(data.analysis);
+      setShowAnalysis(true);
+    } catch (error) {
+      setError('AI 분석 중 오류가 발생했습니다.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <Head>
@@ -206,78 +244,138 @@ export default function KeywordExpansion() {
         ) : result && (
           <div className="space-y-8">
             {result.keywordList.length > 0 ? (
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-semibold">연관 키워드 목록</h2>
-                      <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                        총 {result.keywordList.length}개
-                      </span>
+              <>
+                {/* AI 분석 섹션 */}
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-5">
+                    <h2 className="text-xl font-semibold">AI 분석</h2>
+                  </div>
+                  <div className="p-6">
+                    <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                      <input
+                        type="text"
+                        value={userQuery}
+                        onChange={(e) => setUserQuery(e.target.value)}
+                        placeholder="분석을 위한 질문을 입력하세요 (예: 핵심 키워드 추려주세요, 시장 분석해주세요)"
+                        className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <button
+                        onClick={handleAnalyze}
+                        disabled={analyzing}
+                        className={`px-6 py-3 rounded-lg font-medium text-white shadow-md transition-all ${
+                          analyzing
+                            ? 'bg-blue-400 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-lg'
+                        }`}
+                      >
+                        {analyzing ? (
+                          <div className="flex items-center justify-center">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            분석 중...
+                          </div>
+                        ) : 'AI 분석'}
+                      </button>
                     </div>
-                    <div className="text-sm opacity-90">
-                      검색키워드: {result.keyword} / 검색 시간: {new Date(result.timestamp).toLocaleString()}
-                    </div>
+
+                    {showAnalysis ? (
+                      <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-6 shadow-inner">
+                        <div className="prose max-w-none">
+                          <div dangerouslySetInnerHTML={{ 
+                            __html: marked(analysis, { breaks: true }) 
+                          }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-xl p-6 text-center text-gray-500">
+                        <div className="mb-2 text-blue-500">
+                          <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </div>
+                        <p className="text-lg font-medium">AI에게 질문해보세요</p>
+                        <p className="text-sm mt-1">검색량, 클릭수, 경쟁정도 등을 고려한 분석 결과를 확인할 수 있습니다</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
-                      <tr>
-                        {renderTableHeader('relKeyword', '키워드')}
-                        {renderTableHeader('monthlyPcQcCnt', 'PC\n검색량', true)}
-                        {renderTableHeader('monthlyMobileQcCnt', '모바일\n검색량', true)}
-                        {renderTableHeader('monthlyAvePcClkCnt', 'PC\n클릭수', true)}
-                        {renderTableHeader('monthlyAveMobileClkCnt', '모바일\n클릭수', true)}
-                        {renderTableHeader('monthlyAvePcCtr', 'PC\n클릭율', true)}
-                        {renderTableHeader('monthlyAveMobileCtr', '모바일\n클릭율', true)}
-                        {renderTableHeader('plAvgDepth', '노출광고\n수', true)}
-                        {renderTableHeader('compIdx', '경쟁\n정도', true)}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {getSortedKeywordList().map((item, index) => (
-                        <tr key={index} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-left text-gray-900">
-                            {item.relKeyword}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                            {formatNumber(item.monthlyPcQcCnt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                            {formatNumber(item.monthlyMobileQcCnt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                            {formatNumber(item.monthlyAvePcClkCnt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                            {formatNumber(item.monthlyAveMobileClkCnt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                            {formatPercentage(item.monthlyAvePcCtr)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                            {formatPercentage(item.monthlyAveMobileCtr)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                            {formatNumber(item.plAvgDepth)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                            <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium ${
-                              item.compIdx === 'HIGH' ? 'bg-red-100 text-red-800' :
-                              item.compIdx === 'MID' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-green-100 text-green-800'
-                            }`}>
-                              {item.compIdx === 'HIGH' ? '높음' :
-                               item.compIdx === 'MID' ? '보통' : '낮음'}
-                            </span>
-                          </td>
+
+                {/* 연관 키워드 목록 */}
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-semibold">연관 키워드 목록</h2>
+                        <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                          총 {result.keywordList.length}개
+                        </span>
+                      </div>
+                      <div className="text-sm opacity-90">
+                        검색키워드: {result.keyword} / 검색 시간: {new Date(result.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                        <tr>
+                          {renderTableHeader('relKeyword', '키워드')}
+                          {renderTableHeader('monthlyPcQcCnt', 'PC\n검색량', true)}
+                          {renderTableHeader('monthlyMobileQcCnt', '모바일\n검색량', true)}
+                          {renderTableHeader('monthlyAvePcClkCnt', 'PC\n클릭수', true)}
+                          {renderTableHeader('monthlyAveMobileClkCnt', '모바일\n클릭수', true)}
+                          {renderTableHeader('monthlyAvePcCtr', 'PC\n클릭율', true)}
+                          {renderTableHeader('monthlyAveMobileCtr', '모바일\n클릭율', true)}
+                          {renderTableHeader('plAvgDepth', '노출광고\n수', true)}
+                          {renderTableHeader('compIdx', '경쟁\n정도', true)}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {getSortedKeywordList().map((item, index) => (
+                          <tr key={index} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-left text-gray-900">
+                              {item.relKeyword}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                              {formatNumber(item.monthlyPcQcCnt)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                              {formatNumber(item.monthlyMobileQcCnt)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                              {formatNumber(item.monthlyAvePcClkCnt)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                              {formatNumber(item.monthlyAveMobileClkCnt)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                              {formatPercentage(item.monthlyAvePcCtr)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                              {formatPercentage(item.monthlyAveMobileCtr)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                              {formatNumber(item.plAvgDepth)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                              <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium ${
+                                item.compIdx === 'HIGH' ? 'bg-red-100 text-red-800' :
+                                item.compIdx === 'MID' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-green-100 text-green-800'
+                              }`}>
+                                {item.compIdx === 'HIGH' ? '높음' :
+                                 item.compIdx === 'MID' ? '보통' : '낮음'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              </>
             ) : (
               <div className="max-w-4xl mx-auto">
                 <div className="bg-white rounded-xl shadow-lg p-8 text-center text-gray-500">
