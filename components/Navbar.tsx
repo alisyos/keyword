@@ -46,6 +46,9 @@ const Navbar = () => {
               <Link href="/" className={getLinkClass('/')}>
                 키워드 분석
               </Link>
+              <Link href="/keyword-expansion" className={getLinkClass('/keyword-expansion')}>
+                키워드 확장
+              </Link>
               <Link href="/ad-analysis" className={getLinkClass('/ad-analysis')}>
                 광고 분석
               </Link>
@@ -107,6 +110,9 @@ const Navbar = () => {
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white shadow-lg">
           <Link href="/" className={`block ${getLinkClass('/')}`}>
             키워드 분석
+          </Link>
+          <Link href="/keyword-expansion" className={`block ${getLinkClass('/keyword-expansion')}`}>
+            키워드 확장
           </Link>
           <Link href="/ad-analysis" className={`block ${getLinkClass('/ad-analysis')}`}>
             광고 분석
