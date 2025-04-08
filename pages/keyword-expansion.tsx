@@ -21,16 +21,17 @@ interface SearchResult {
   keywordList: KeywordData[];
 }
 
-type SortField = keyof KeywordData;
-type SortOrder = 'asc' | 'desc';
+interface SortConfig {
+  key: string;
+  direction: 'asc' | 'desc' | null;
+}
 
 export default function KeywordExpansion() {
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchResult | null>(null);
-  const [sortField, setSortField] = useState<SortField>('relKeyword');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: '', direction: null });
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,85 +69,81 @@ export default function KeywordExpansion() {
     return `${Number(value).toFixed(2)}%`;
   };
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' | null = 'asc';
+    
+    if (sortConfig.key === key) {
+      if (sortConfig.direction === 'asc') {
+        direction = 'desc';
+      } else if (sortConfig.direction === 'desc') {
+        direction = null;
+      }
     }
+    
+    setSortConfig({ key, direction });
   };
 
   const getSortedKeywordList = () => {
-    if (!result?.keywordList) return [];
-    
-    return [...result.keywordList].sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
+    if (!sortConfig.direction) {
+      return result?.keywordList || [];
+    }
+
+    return [...(result?.keywordList || [])].sort((a, b) => {
+      if (a[sortConfig.key] === null) return 1;
+      if (b[sortConfig.key] === null) return -1;
       
-      // 숫자 필드의 경우 숫자로 변환하여 비교
-      if (['monthlyPcQcCnt', 'monthlyMobileQcCnt', 'monthlyAvePcClkCnt', 'monthlyAveMobileClkCnt', 'plAvgDepth'].includes(sortField)) {
-        aValue = aValue === '<10' ? '0' : aValue;
-        bValue = bValue === '<10' ? '0' : bValue;
-        return sortOrder === 'asc' ? 
-          Number(aValue) - Number(bValue) : 
-          Number(bValue) - Number(aValue);
+      if (sortConfig.key === 'compIdx') {
+        const order = { 'HIGH': 3, 'MIDDLE': 2, 'LOW': 1 };
+        return sortConfig.direction === 'asc' 
+          ? order[a[sortConfig.key]] - order[b[sortConfig.key]]
+          : order[b[sortConfig.key]] - order[a[sortConfig.key]];
       }
       
-      // 퍼센트 필드의 경우 숫자로 변환하여 비교
-      if (['monthlyAvePcCtr', 'monthlyAveMobileCtr'].includes(sortField)) {
-        return sortOrder === 'asc' ? 
-          Number(aValue) - Number(bValue) : 
-          Number(bValue) - Number(aValue);
-      }
-      
-      // 경쟁도의 경우 HIGH > MID > LOW 순서로 정렬
-      if (sortField === 'compIdx') {
-        const order = { HIGH: 3, MID: 2, LOW: 1 };
-        const aOrder = order[aValue as keyof typeof order] || 0;
-        const bOrder = order[bValue as keyof typeof order] || 0;
-        return sortOrder === 'asc' ? 
-          aOrder - bOrder : 
-          bOrder - aOrder;
-      }
-      
-      // 문자열 필드의 경우 문자열 비교
-      return sortOrder === 'asc' ? 
-        aValue.localeCompare(bValue) : 
-        bValue.localeCompare(aValue);
+      return sortConfig.direction === 'asc'
+        ? a[sortConfig.key] > b[sortConfig.key] ? 1 : -1
+        : b[sortConfig.key] > a[sortConfig.key] ? 1 : -1;
     });
   };
 
-  const renderSortIcon = (field: SortField) => {
-    if (sortField !== field) {
-      return (
-        <svg className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-        </svg>
-      );
+  const renderSortIcon = (key: string) => {
+    if (sortConfig.key !== key) {
+      return <span className="ml-1 text-gray-400">↕</span>;
     }
-    return sortOrder === 'asc' ? (
-      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
-      </svg>
+    return sortConfig.direction === 'asc' ? (
+      <span className="ml-1 text-blue-600">↑</span>
+    ) : sortConfig.direction === 'desc' ? (
+      <span className="ml-1 text-blue-600">↓</span>
     ) : (
-      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-      </svg>
+      <span className="ml-1 text-gray-400">↕</span>
     );
   };
 
-  const renderTableHeader = (field: SortField, label: string) => (
-    <th 
-      className="group px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gradient-to-b from-gray-50 to-gray-100 z-10 border-b border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
-      onClick={() => handleSort(field)}
-    >
-      <div className="flex items-center space-x-1">
-        <span>{label}</span>
-        {renderSortIcon(field)}
+  const renderTableHeader = (field: string, label: string, isMultiLine: boolean = false) => {
+    const labelContent = isMultiLine ? (
+      <div className="flex flex-col items-center gap-1">
+        {label.split('\n').map((part, index) => (
+          <span key={index}>{part}</span>
+        ))}
       </div>
-    </th>
-  );
+    ) : (
+      <span>{label}</span>
+    );
+
+    return (
+      <th 
+        scope="col" 
+        className={`px-6 py-4 text-sm font-semibold text-gray-900 cursor-pointer hover:bg-blue-100/50 ${
+          field === 'relKeyword' ? 'text-left' : 'text-center'
+        }`}
+        onClick={() => handleSort(field)}
+      >
+        <div className={`flex ${field === 'relKeyword' ? '' : 'justify-center'} items-center gap-1`}>
+          {labelContent}
+          {renderSortIcon(field)}
+        </div>
+      </th>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -227,64 +224,46 @@ export default function KeywordExpansion() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
                       <tr>
-                        <th scope="col" className="px-6 py-4 text-left text-sm font-semibold text-gray-900 whitespace-nowrap">
-                          키워드
-                        </th>
-                        <th scope="col" className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                          PC<br/>검색량
-                        </th>
-                        <th scope="col" className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                          모바일<br/>검색량
-                        </th>
-                        <th scope="col" className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                          PC<br/>클릭수
-                        </th>
-                        <th scope="col" className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                          모바일<br/>클릭수
-                        </th>
-                        <th scope="col" className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                          PC<br/>클릭율
-                        </th>
-                        <th scope="col" className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                          모바일<br/>클릭율
-                        </th>
-                        <th scope="col" className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                          노출광고<br/>수
-                        </th>
-                        <th scope="col" className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                          경쟁<br/>정도
-                        </th>
+                        {renderTableHeader('relKeyword', '키워드')}
+                        {renderTableHeader('monthlyPcQcCnt', 'PC\n검색량', true)}
+                        {renderTableHeader('monthlyMobileQcCnt', '모바일\n검색량', true)}
+                        {renderTableHeader('monthlyAvePcClkCnt', 'PC\n클릭수', true)}
+                        {renderTableHeader('monthlyAveMobileClkCnt', '모바일\n클릭수', true)}
+                        {renderTableHeader('monthlyAvePcCtr', 'PC\n클릭율', true)}
+                        {renderTableHeader('monthlyAveMobileCtr', '모바일\n클릭율', true)}
+                        {renderTableHeader('plAvgDepth', '노출광고\n수', true)}
+                        {renderTableHeader('compIdx', '경쟁\n정도', true)}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {getSortedKeywordList().map((item, index) => (
                         <tr key={index} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-left text-gray-900">
                             {item.relKeyword}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
                             {formatNumber(item.monthlyPcQcCnt)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
                             {formatNumber(item.monthlyMobileQcCnt)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-gray-900 font-medium">{formatNumber(item.monthlyAvePcClkCnt)}</div>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                            {formatNumber(item.monthlyAvePcClkCnt)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-gray-900 font-medium">{formatNumber(item.monthlyAveMobileClkCnt)}</div>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                            {formatNumber(item.monthlyAveMobileClkCnt)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-gray-900 font-medium">{formatPercentage(item.monthlyAvePcCtr)}</div>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                            {formatPercentage(item.monthlyAvePcCtr)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-gray-900 font-medium">{formatPercentage(item.monthlyAveMobileCtr)}</div>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                            {formatPercentage(item.monthlyAveMobileCtr)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-gray-900 font-medium">{formatNumber(item.plAvgDepth)}</div>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                            {formatNumber(item.plAvgDepth)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-3 py-1.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                            <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium ${
                               item.compIdx === 'HIGH' ? 'bg-red-100 text-red-800' :
                               item.compIdx === 'MID' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-green-100 text-green-800'
